@@ -1,0 +1,51 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: payment-service
+  profiles:
+    active: dev
+
+  datasource:
+    url: jdbc:postgresql://ep-billowing-silence-b30jkujt-pooler.c-4.ap-southeast-1.aws.neon.tech/payment_db?sslmode=require
+    username: neondb_owner
+    password: npg_R7gOhQBkDUx4
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: payment
+
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://ep-billowing-silence-b30jkujt-pooler.c-4.ap-southeast-1.aws.neon.tech/payment_db?sslmode=require
+    user: neondb_owner
+    password: npg_R7gOhQBkDUx4
+    baseline-on-migrate: true
+    clean-disabled: false
+    clean-on-validation-error: true
+    schemas: payment
+    locations: classpath:db/migration
+
+openapi:
+  service:
+    title: Payment Service API
+    version: 1.0.0
+
+logging:
+  level:
+    root: INFO
+    web: INFO
+    org.flywaydb: INFO
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

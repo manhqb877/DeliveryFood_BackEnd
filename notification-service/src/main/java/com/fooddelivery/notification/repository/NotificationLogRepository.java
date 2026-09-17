@@ -1,0 +1,13 @@
+package com.fooddelivery.notification.repository;
+
+import com.fooddelivery.notification.document.NotificationLogDocument;
+import org.bson.types.ObjectId;
+import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface NotificationLogRepository extends MongoRepository<NotificationLogDocument, ObjectId> {
+    List<NotificationLogDocument> findByRecipientId(Long recipientId);
+}

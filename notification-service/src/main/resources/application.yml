@@ -1,0 +1,29 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: notification-service
+  profiles:
+    active: dev
+
+
+  data:
+    mongodb:
+      uri: mongodb+srv://lananhhii121_db_user:lananh123@delivery-system.1fh7sey.mongodb.net/notification_db?retryWrites=true&w=majority&appName=Delivery-system
+
+openapi:
+  service:
+    title: Notification Service API
+    version: 1.0.0
+
+logging:
+  level:
+    root: INFO
+    web: INFO
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
