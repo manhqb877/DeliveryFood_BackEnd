@@ -40,6 +40,18 @@ public class AuthController {
     }
 
     /**
+     * POST /api/v1/auth/register/verify-otp
+     * Verify OTP before proceeding to registration.
+     */
+    @PostMapping("/register/verify-otp")
+    public ResponseEntity<ApiResponse<Void>> verifyRegisterOtp(
+            @Valid @RequestBody com.fooddelivery.auth.dto.request.VerifyOtpRequest request
+    ) {
+        authService.verifyRegisterOtp(request);
+        return ResponseEntity.ok(ApiResponse.success("OTP verified successfully", null));
+    }
+
+    /**
      * POST /api/v1/auth/register
      * Register a new user account (CUSTOMER, SHOP_MANAGER, SHIPPER).
      */

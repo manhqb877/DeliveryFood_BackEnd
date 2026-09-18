@@ -21,6 +21,8 @@ public interface AuthService {
 
     void sendRegisterOtp(com.fooddelivery.auth.dto.request.SendOtpRequest request);
 
+    void verifyRegisterOtp(com.fooddelivery.auth.dto.request.VerifyOtpRequest request);
+
     void sendForgotPasswordOtp(com.fooddelivery.auth.dto.request.SendOtpRequest request);
 
     void verifyForgotPasswordOtp(com.fooddelivery.auth.dto.request.VerifyOtpRequest request);

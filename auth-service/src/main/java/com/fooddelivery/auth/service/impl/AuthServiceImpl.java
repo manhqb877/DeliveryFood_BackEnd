@@ -197,6 +197,23 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
+     * Verify Register OTP.
+     */
+    @Override
+    public void verifyRegisterOtp(com.fooddelivery.auth.dto.request.VerifyOtpRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+        String otp = request.getOtp();
+
+        String storedOtp = redisTemplate.opsForValue().get("otp:register:" + email);
+        if (storedOtp == null) {
+            throw new BusinessException(ErrorCode.OTP_EXPIRED);
+        }
+        if (!storedOtp.equals(otp)) {
+            throw new BusinessException(ErrorCode.OTP_INVALID);
+        }
+    }
+
+    /**
      * Send OTP to email for password reset.
      */
     @Override
