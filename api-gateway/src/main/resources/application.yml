@@ -6,6 +6,8 @@ spring:
     name: api-gateway
   profiles:
     active: dev
+  main:
+    web-application-type: reactive   # Bắt buộc Netty khởi động, không phụ thuộc IDE
 
 management:
   endpoints:

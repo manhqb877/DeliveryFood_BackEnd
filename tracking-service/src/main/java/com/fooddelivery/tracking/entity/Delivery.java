@@ -1,6 +1,8 @@
 package com.fooddelivery.tracking.entity;
 
 
+import com.fooddelivery.tracking.enums.ConfirmMethod;
+import com.fooddelivery.tracking.enums.DeliveryStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;

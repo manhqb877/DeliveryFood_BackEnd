@@ -10,20 +10,18 @@ spring:
           instances:
             auth-service:
               - uri: ${AUTH_SERVICE_URL:http://localhost:8081}
-            content-service:
-              - uri: ${CONTENT_SERVICE_URL:http://localhost:8082}
-            learning-service:
-              - uri: ${LEARNING_SERVICE_URL:http://localhost:8083}
-            ai-practice-service:
-              - uri: ${AI_PRACTICE_SERVICE_URL:http://localhost:8084}
+            core-service:
+              - uri: ${CORE_SERVICE_URL:http://localhost:8082}
+            order-service:
+              - uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+            tracking-service:
+              - uri: ${TRACKING_SERVICE_URL:http://localhost:8084}
             payment-service:
               - uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
             notification-service:
               - uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
-            teacher-service:
-              - uri: ${TEACHER_SERVICE_URL:http://localhost:8087}
-            social-service:
-              - uri: ${SOCIAL_SERVICE_URL:http://localhost:8088}
+            analytics-service:
+              - uri: ${ANALYTICS_SERVICE_URL:http://localhost:8087}
 
     gateway:
       globalcors:
@@ -65,32 +63,31 @@ spring:
         - id: auth-service
           uri: ${AUTH_SERVICE_URL:http://localhost:8081}
           predicates:
-            - Path=/api/v1/auth/**, /auth/**, /api/v1/users/**, /users/**, /admin/users, /admin/users/**, /admin/teacher-registrations, /admin/teacher-registrations/**
+            - Path=/api/v1/auth/**, /auth/**, /api/v1/users/**, /users/**, /api/v1/shippers/**, /shippers/**, /api/v1/shops-profile/**, /api/v1/areas/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
-        # 2. Content Service (port 8082)
-        - id: content-service
-          uri: ${CONTENT_SERVICE_URL:http://localhost:8082}
+        # 2. Core Service (port 8082)
+        - id: core-service
+          uri: ${CORE_SERVICE_URL:http://localhost:8082}
           predicates:
-            - Path=/api/v1/content/**, /content/**, /admin/words, /admin/words/**, /admin/topics/**, /admin/courses, /admin/courses/**, /admin/lessons, /admin/lessons/**, /admin/reading-passages, /admin/reading-passages/**, /admin/listening-lessons, /admin/listening-lessons/**, /admin/readings/**, /admin/listenings/**, /admin/phrases/**
+            - Path=/api/v1/core/**, /core/**, /api/v1/shops/**, /shops/**, /api/v1/categories/**, /categories/**, /api/v1/items/**, /items/**, /api/v1/promotions/**, /promotions/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
-        # 3. Learning Service (port 8083)
-        - id: learning-service
-          uri: ${LEARNING_SERVICE_URL:http://localhost:8083}
+        # 3. Order Service (port 8083)
+        - id: order-service
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
           predicates:
-            - Path=/api/v1/learning/**, /learning/**, /admin/quizzes, /admin/quizzes/**
+            - Path=/api/v1/orders/**, /orders/**, /api/v1/carts/**, /carts/**, /api/v1/reviews/**, /reviews/**, /api/v1/complaints/**, /complaints/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
-
-        # 4. AI Practice Service (port 8084)
-        - id: ai-practice-service
-          uri: ${AI_PRACTICE_SERVICE_URL:http://localhost:8084}
+        # 4. Tracking Service (port 8084)
+        - id: tracking-service
+          uri: ${TRACKING_SERVICE_URL:http://localhost:8084}
           predicates:
-            - Path=/api/v1/ai-practice/**, /ai-practice/**
+            - Path=/api/v1/tracking/**, /tracking/**, /api/v1/deliveries/**, /deliveries/**, /api/v1/incidents/**, /incidents/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
@@ -98,7 +95,7 @@ spring:
         - id: payment-service
           uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
           predicates:
-            - Path=/api/v1/payment/**, /payment/**, /payments/**
+            - Path=/api/v1/payment/**, /payment/**, /payments/**, /api/v1/wallets/**, /wallets/**, /api/v1/transactions/**, /transactions/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
@@ -106,23 +103,15 @@ spring:
         - id: notification-service
           uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
           predicates:
-            - Path=/api/v1/notification/**, /notification/**, /notifications/**
+            - Path=/api/v1/notification/**, /notification/**, /notifications/**, /api/v1/messages/**, /messages/**, /api/v1/conversations/**, /conversations/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
-        # 7. Teacher Service (port 8087)
-        - id: teacher-service
-          uri: ${TEACHER_SERVICE_URL:http://localhost:8087}
+        # 7. Analytics Service (port 8087)
+        - id: analytics-service
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8087}
           predicates:
-            - Path=/api/v1/teacher/**, /teacher/**
-          filters:
-            - RewritePath=/api/v1/(?<segment>.*), /${segment}
-
-        # 8. Social Service (port 8088)
-        - id: social-service
-          uri: ${SOCIAL_SERVICE_URL:http://localhost:8088}
-          predicates:
-            - Path=/api/v1/social/**, /social/**
+            - Path=/api/v1/analytics/**, /analytics/**, /api/v1/fraud-alerts/**, /fraud-alerts/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
@@ -134,24 +123,24 @@ spring:
           filters:
             - SetPath=/v3/api-docs
 
-        - id: content-service-docs
-          uri: ${CONTENT_SERVICE_URL:http://localhost:8082}
+        - id: core-service-docs
+          uri: ${CORE_SERVICE_URL:http://localhost:8082}
           predicates:
-            - Path=/v3/api-docs/content-service
+            - Path=/v3/api-docs/core-service
           filters:
             - SetPath=/v3/api-docs
 
-        - id: learning-service-docs
-          uri: ${LEARNING_SERVICE_URL:http://localhost:8083}
+        - id: order-service-docs
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
           predicates:
-            - Path=/v3/api-docs/learning-service
+            - Path=/v3/api-docs/order-service
           filters:
             - SetPath=/v3/api-docs
 
-        - id: ai-practice-service-docs
-          uri: ${AI_PRACTICE_SERVICE_URL:http://localhost:8084}
+        - id: tracking-service-docs
+          uri: ${TRACKING_SERVICE_URL:http://localhost:8084}
           predicates:
-            - Path=/v3/api-docs/ai-practice-service
+            - Path=/v3/api-docs/tracking-service
           filters:
             - SetPath=/v3/api-docs
 
@@ -169,17 +158,10 @@ spring:
           filters:
             - SetPath=/v3/api-docs
 
-        - id: teacher-service-docs
-          uri: ${TEACHER_SERVICE_URL:http://localhost:8087}
+        - id: analytics-service-docs
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8087}
           predicates:
-            - Path=/v3/api-docs/teacher-service
-          filters:
-            - SetPath=/v3/api-docs
-
-        - id: social-service-docs
-          uri: ${SOCIAL_SERVICE_URL:http://localhost:8088}
-          predicates:
-            - Path=/v3/api-docs/social-service
+            - Path=/v3/api-docs/analytics-service
           filters:
             - SetPath=/v3/api-docs
 
@@ -189,17 +171,15 @@ springdoc:
     urls:
       - name: 1. Auth Service
         url: /v3/api-docs/auth-service
-      - name: 2. Content Service
-        url: /v3/api-docs/content-service
-      - name: 3. Learning Service
-        url: /v3/api-docs/learning-service
-      - name: 4. AI Practice Service
-        url: /v3/api-docs/ai-practice-service
+      - name: 2. Core Service
+        url: /v3/api-docs/core-service
+      - name: 3. Order Service
+        url: /v3/api-docs/order-service
+      - name: 4. Tracking Service
+        url: /v3/api-docs/tracking-service
       - name: 5. Payment Service
         url: /v3/api-docs/payment-service
       - name: 6. Notification Service
         url: /v3/api-docs/notification-service
-      - name: 7. Teacher Service
-        url: /v3/api-docs/teacher-service
-      - name: 8. Social Service
-        url: /v3/api-docs/social-service
+      - name: 7. Analytics Service
+        url: /v3/api-docs/analytics-service

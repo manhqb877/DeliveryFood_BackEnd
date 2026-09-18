@@ -187,6 +187,20 @@ public class GlobalExceptionHandling {
     }
 
     /**
+     * Handle business exceptions (e.g. duplicate phone, invalid credentials, account locked)
+     */
+    @ExceptionHandler(BusinessException.class)
+    public ErrorResponse handleBusinessException(BusinessException e, WebRequest request) {
+        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse.setTimestamp(new Date());
+        errorResponse.setPath(request.getDescription(false).replace("uri=", ""));
+        errorResponse.setStatus(e.getErrorCode().getCode());
+        errorResponse.setError("Business Error");
+        errorResponse.setMessage(e.getMessage());
+        return errorResponse;
+    }
+
+    /**
      * Handle exception when internal server error
      *
      * @param e
