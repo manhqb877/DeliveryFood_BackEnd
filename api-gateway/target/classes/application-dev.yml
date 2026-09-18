@@ -1,0 +1,186 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  cloud:
+    discovery:
+      client:
+        simple:
+          instances:
+            auth-service:
+              - uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+            core-service:
+              - uri: ${CORE_SERVICE_URL:http://localhost:8082}
+            order-service:
+              - uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+            tracking-service:
+              - uri: ${TRACKING_SERVICE_URL:http://localhost:8084}
+            payment-service:
+              - uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+            notification-service:
+              - uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
+            analytics-service:
+              - uri: ${ANALYTICS_SERVICE_URL:http://localhost:8087}
+
+    gateway:
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5173"
+              - "http://127.0.0.1:5173"
+              - "http://localhost:5174"
+              - "http://127.0.0.1:5174"
+              - "http://localhost:5175"
+              - "http://127.0.0.1:5175"
+              - "http://localhost:3000"
+              - "http://127.0.0.1:3000"
+              - "http://localhost:8080"
+              - "http://localhost:8086"
+              - "http://localhost:19006"
+            allowedOriginPatterns:
+              - "*"
+              - "http://localhost:*"
+              - "http://127.0.0.1:*"
+              - "http://10.0.2.2:*"
+            allowedMethods:
+              - "GET"
+              - "POST"
+              - "PUT"
+              - "DELETE"
+              - "OPTIONS"
+              - "PATCH"
+            allowedHeaders: "*"
+            exposedHeaders: "*"
+            allowCredentials: true
+
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+
+      routes:
+        # 1. Auth Service (port 8081)
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/auth/**, /auth/**, /api/v1/users/**, /users/**, /api/v1/shippers/**, /shippers/**, /api/v1/shops-profile/**, /api/v1/areas/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /${segment}
+
+        # 2. Core Service (port 8082)
+        - id: core-service
+          uri: ${CORE_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/core/**, /core/**, /api/v1/shops/**, /shops/**, /api/v1/categories/**, /categories/**, /api/v1/items/**, /items/**, /api/v1/promotions/**, /promotions/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /${segment}
+
+        # 3. Order Service (port 8083)
+        - id: order-service
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/orders/**, /orders/**, /api/v1/carts/**, /carts/**, /api/v1/reviews/**, /reviews/**, /api/v1/complaints/**, /complaints/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /${segment}
+
+        # 4. Tracking Service (port 8084)
+        - id: tracking-service
+          uri: ${TRACKING_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/tracking/**, /tracking/**, /api/v1/deliveries/**, /deliveries/**, /api/v1/incidents/**, /incidents/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /${segment}
+
+        # 5. Payment Service (port 8085)
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/v1/payment/**, /payment/**, /payments/**, /api/v1/wallets/**, /wallets/**, /api/v1/transactions/**, /transactions/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /${segment}
+
+        # 6. Notification Service (port 8086)
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/api/v1/notification/**, /notification/**, /notifications/**, /api/v1/messages/**, /messages/**, /api/v1/conversations/**, /conversations/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /${segment}
+
+        # 7. Analytics Service (port 8087)
+        - id: analytics-service
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/api/v1/analytics/**, /analytics/**, /api/v1/fraud-alerts/**, /fraud-alerts/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /${segment}
+
+        # ===== SWAGGER API DOCS ROUTING =====
+        - id: auth-service-docs
+          uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/v3/api-docs/auth-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: core-service-docs
+          uri: ${CORE_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/v3/api-docs/core-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: order-service-docs
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/v3/api-docs/order-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: tracking-service-docs
+          uri: ${TRACKING_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/v3/api-docs/tracking-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: payment-service-docs
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/v3/api-docs/payment-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: notification-service-docs
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/v3/api-docs/notification-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: analytics-service-docs
+          uri: ${ANALYTICS_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/v3/api-docs/analytics-service
+          filters:
+            - SetPath=/v3/api-docs
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    urls:
+      - name: 1. Auth Service
+        url: /v3/api-docs/auth-service
+      - name: 2. Core Service
+        url: /v3/api-docs/core-service
+      - name: 3. Order Service
+        url: /v3/api-docs/order-service
+      - name: 4. Tracking Service
+        url: /v3/api-docs/tracking-service
+      - name: 5. Payment Service
+        url: /v3/api-docs/payment-service
+      - name: 6. Notification Service
+        url: /v3/api-docs/notification-service
+      - name: 7. Analytics Service
+        url: /v3/api-docs/analytics-service

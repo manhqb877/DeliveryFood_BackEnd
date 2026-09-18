@@ -4,6 +4,8 @@ import com.fooddelivery.auth.common.ApiResponse;
 import com.fooddelivery.auth.dto.request.LoginRequest;
 import com.fooddelivery.auth.dto.request.RefreshTokenRequest;
 import com.fooddelivery.auth.dto.request.RegisterRequest;
+import com.fooddelivery.auth.dto.request.ResetPasswordRequest;
+import com.fooddelivery.auth.dto.request.SendOtpRequest;
 import com.fooddelivery.auth.dto.response.LoginResponse;
 import com.fooddelivery.auth.dto.response.RegisterResponse;
 import com.fooddelivery.auth.dto.response.UserResponse;
@@ -88,5 +90,29 @@ public class AuthController {
     ) {
         UserResponse response = authService.getMyProfile(userDetails.getUsername());
         return ResponseEntity.ok(ApiResponse.success("Profile retrieved successfully", response));
+    }
+
+    /**
+     * POST /api/v1/auth/forgot-password/send-otp
+     * Send a 6-digit OTP to the user's email for password reset.
+     */
+    @PostMapping("/forgot-password/send-otp")
+    public ResponseEntity<ApiResponse<Void>> sendForgotPasswordOtp(
+            @Valid @RequestBody SendOtpRequest request
+    ) {
+        authService.sendForgotPasswordOtp(request);
+        return ResponseEntity.ok(ApiResponse.success("OTP sent successfully to email", null));
+    }
+
+    /**
+     * POST /api/v1/auth/forgot-password/reset
+     * Verify OTP and set a new password.
+     */
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPasswordWithOtp(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        authService.resetPasswordWithOtp(request);
+        return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
     }
 }
