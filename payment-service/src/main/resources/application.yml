@@ -23,7 +23,7 @@ spring:
         default_schema: payment
 
   flyway:
-    enabled: true
+    enabled: false
     url: jdbc:postgresql://ep-billowing-silence-b30jkujt-pooler.c-4.ap-southeast-1.aws.neon.tech/payment_db?sslmode=require
     user: neondb_owner
     password: npg_R7gOhQBkDUx4

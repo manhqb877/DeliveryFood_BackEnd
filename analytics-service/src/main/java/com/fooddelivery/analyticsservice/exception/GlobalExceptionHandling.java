@@ -3,7 +3,7 @@ package com.fooddelivery.analyticsservice.exception;
 
 
 
-import com.fooddelivery.auth.exception.ResourceNotFoundException;
+
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

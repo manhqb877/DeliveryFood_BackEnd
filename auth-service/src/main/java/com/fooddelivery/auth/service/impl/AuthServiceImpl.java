@@ -1,0 +1,214 @@
+package com.fooddelivery.auth.service.impl;
+
+import com.fooddelivery.auth.converter.UserConverter;
+import com.fooddelivery.auth.dto.request.LoginRequest;
+import com.fooddelivery.auth.dto.request.RefreshTokenRequest;
+import com.fooddelivery.auth.dto.request.RegisterRequest;
+import com.fooddelivery.auth.dto.response.LoginResponse;
+import com.fooddelivery.auth.dto.response.RegisterResponse;
+import com.fooddelivery.auth.dto.response.UserResponse;
+import com.fooddelivery.auth.entity.User;
+import com.fooddelivery.auth.enums.ErrorCode;
+import com.fooddelivery.auth.enums.UserStatus;
+import com.fooddelivery.auth.exception.BusinessException;
+import com.fooddelivery.auth.repository.UserRepository;
+import com.fooddelivery.auth.security.JwtProvider;
+import com.fooddelivery.auth.service.AuthService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.OffsetDateTime;
+import java.util.concurrent.TimeUnit;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class AuthServiceImpl implements AuthService {
+
+    private static final String BLACKLIST_PREFIX = "blacklist:";
+    private static final String REFRESH_TOKEN_PREFIX = "refresh:";
+    private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
+
+    private final UserRepository userRepository;
+    private final UserConverter userConverter;
+    private final JwtProvider jwtProvider;
+    private final PasswordEncoder passwordEncoder;
+    private final StringRedisTemplate redisTemplate;
+
+    /**
+     * Register a new user account.
+     */
+    @Override
+    @Transactional
+    public RegisterResponse register(RegisterRequest request) {
+        log.info("Registration attempt for phone: {}", request.getPhone());
+
+        validatePhoneNotTaken(request.getPhone());
+        validateEmailNotTaken(request.getEmail());
+
+        User user = userConverter.toEntity(request);
+        User savedUser = userRepository.save(user);
+
+        log.info("User registered successfully with id: {} and phone: {}", savedUser.getId(), savedUser.getPhone());
+
+        return RegisterResponse.builder()
+                .user(userConverter.toResponse(savedUser))
+                .message("Registration successful")
+                .build();
+    }
+
+    /**
+     * Authenticate user and return JWT tokens.
+     */
+    @Override
+    @Transactional
+    public LoginResponse login(LoginRequest request) {
+        log.info("Login attempt for phone: {}", request.getPhone());
+
+        User user = userRepository.findByPhone(request.getPhone())
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
+
+        validateAccountStatus(user);
+        verifyPassword(request.getPassword(), user);
+
+        resetFailedLoginCount(user);
+        user.setLastLoginAt(OffsetDateTime.now());
+        userRepository.save(user);
+
+        String accessToken = jwtProvider.generateAccessToken(user);
+        String refreshToken = jwtProvider.generateRefreshToken(user);
+
+        storeRefreshTokenInRedis(user.getPhone(), refreshToken);
+
+        log.info("Login successful for userId: {}", user.getId());
+
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(jwtProvider.getAccessTokenExpirationSeconds())
+                .user(userConverter.toResponse(user))
+                .build();
+    }
+
+    /**
+     * Refresh access token using a valid refresh token.
+     */
+    @Override
+    @Transactional
+    public LoginResponse refreshToken(RefreshTokenRequest request) {
+        String refreshToken = request.getRefreshToken();
+        log.info("Refresh token request received");
+
+        String phone = jwtProvider.extractPhone(refreshToken);
+
+        if (!jwtProvider.isTokenValid(refreshToken, phone)) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Refresh token is invalid or expired");
+        }
+
+        String storedToken = redisTemplate.opsForValue().get(REFRESH_TOKEN_PREFIX + phone);
+        if (!refreshToken.equals(storedToken)) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Refresh token has been revoked");
+        }
+
+        User user = userRepository.findByPhone(phone)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        validateAccountStatus(user);
+
+        String newAccessToken = jwtProvider.generateAccessToken(user);
+        String newRefreshToken = jwtProvider.generateRefreshToken(user);
+        storeRefreshTokenInRedis(phone, newRefreshToken);
+
+        log.info("Token refreshed for userId: {}", user.getId());
+
+        return LoginResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .tokenType("Bearer")
+                .expiresIn(jwtProvider.getAccessTokenExpirationSeconds())
+                .user(userConverter.toResponse(user))
+                .build();
+    }
+
+    /**
+     * Logout: blacklist the access token and remove the refresh token from Redis.
+     */
+    @Override
+    public void logout(String accessToken, String phone) {
+        log.info("Logout for phone: {}", phone);
+
+        long remainingTtl = jwtProvider.getAccessTokenExpirationSeconds();
+        redisTemplate.opsForValue().set(BLACKLIST_PREFIX + accessToken, "1", remainingTtl, TimeUnit.SECONDS);
+        redisTemplate.delete(REFRESH_TOKEN_PREFIX + phone);
+
+        log.info("Logout completed for phone: {}", phone);
+    }
+
+    /**
+     * Get user profile of the currently authenticated user.
+     */
+    @Override
+    public UserResponse getMyProfile(String phone) {
+        User user = userRepository.findByPhone(phone)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return userConverter.toResponse(user);
+    }
+
+    // ─── Private helpers ───────────────────────────────────────────────────────
+
+    private void validatePhoneNotTaken(String phone) {
+        if (userRepository.existsByPhone(phone)) {
+            throw new BusinessException(ErrorCode.PHONE_ALREADY_EXISTS);
+        }
+    }
+
+    private void validateEmailNotTaken(String email) {
+        if (email != null && !email.isBlank() && userRepository.existsByEmail(email.trim().toLowerCase())) {
+            throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+    }
+
+    private void validateAccountStatus(User user) {
+        if (user.getStatus() == UserStatus.LOCKED) {
+            throw new BusinessException(ErrorCode.ACCOUNT_LOCKED);
+        }
+        if (user.getStatus() == UserStatus.PENDING) {
+            throw new BusinessException(ErrorCode.ACCOUNT_PENDING);
+        }
+    }
+
+    private void verifyPassword(String rawPassword, User user) {
+        if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
+            incrementFailedLoginCount(user);
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
+    }
+
+    private void incrementFailedLoginCount(User user) {
+        short failedCount = (short) (user.getFailedLoginCount() + 1);
+        user.setFailedLoginCount(failedCount);
+
+        if (failedCount >= MAX_FAILED_LOGIN_ATTEMPTS) {
+            user.setStatus(UserStatus.LOCKED);
+            log.warn("Account locked due to {} failed login attempts for userId: {}", failedCount, user.getId());
+        }
+
+        userRepository.save(user);
+    }
+
+    private void resetFailedLoginCount(User user) {
+        if (user.getFailedLoginCount() > 0) {
+            user.setFailedLoginCount((short) 0);
+        }
+    }
+
+    private void storeRefreshTokenInRedis(String phone, String refreshToken) {
+        // Store refresh token in Redis with 7-day TTL (matching refresh token expiry)
+        redisTemplate.opsForValue().set(REFRESH_TOKEN_PREFIX + phone, refreshToken, 7, TimeUnit.DAYS);
+    }
+}

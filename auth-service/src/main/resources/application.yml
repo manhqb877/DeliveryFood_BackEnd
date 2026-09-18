@@ -23,15 +23,21 @@ spring:
         default_schema: auth
 
   flyway:
-    enabled: true
-    url: jdbc:postgresql://ep-billowing-silence-b30jkujt-pooler.c-4.ap-southeast-1.aws.neon.tech/auth_db?sslmode=require
-    user: neondb_owner
-    password: npg_R7gOhQBkDUx4
-    baseline-on-migrate: true
-    clean-disabled: false
-    clean-on-validation-error: true
-    schemas: auth
-    locations: classpath:db/migration
+    enabled: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      timeout: 5000ms
+
+# JWT Configuration
+jwt:
+  # Base64-encoded secret — generate with: openssl rand -base64 32
+  secret: 5K9mRzT8sW3vY1nJ7pQ4xB6cL2hF0eA9dG8uN5oX3yV7wZ1iM4kP6
+  access-token-expiration: 3600000    # 1 hour in ms
+  refresh-token-expiration: 604800000 # 7 days in ms
 
 openapi:
   service:
@@ -42,7 +48,7 @@ logging:
   level:
     root: INFO
     web: INFO
-    org.flywaydb: INFO
+    com.fooddelivery.auth: DEBUG
 
 springdoc:
   api-docs:
