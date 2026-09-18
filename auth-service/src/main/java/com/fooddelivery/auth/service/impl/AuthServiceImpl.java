@@ -4,6 +4,8 @@ import com.fooddelivery.auth.converter.UserConverter;
 import com.fooddelivery.auth.dto.request.LoginRequest;
 import com.fooddelivery.auth.dto.request.RefreshTokenRequest;
 import com.fooddelivery.auth.dto.request.RegisterRequest;
+import com.fooddelivery.auth.dto.request.ResetPasswordRequest;
+import com.fooddelivery.auth.dto.request.SendOtpRequest;
 import com.fooddelivery.auth.dto.response.LoginResponse;
 import com.fooddelivery.auth.dto.response.RegisterResponse;
 import com.fooddelivery.auth.dto.response.UserResponse;
@@ -14,6 +16,7 @@ import com.fooddelivery.auth.exception.BusinessException;
 import com.fooddelivery.auth.repository.UserRepository;
 import com.fooddelivery.auth.security.JwtProvider;
 import com.fooddelivery.auth.service.AuthService;
+import com.fooddelivery.auth.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -38,6 +41,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
+    private final EmailService emailService;
 
     /**
      * Register a new user account.
@@ -67,9 +71,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        log.info("Login attempt for phone: {}", request.getPhone());
+        String identifier = request.getPhone(); // Frontend sends this, can be phone or email
+        log.info("Login attempt for identifier: {}", identifier);
 
-        User user = userRepository.findByPhone(request.getPhone())
+        User user = userRepository.findByPhoneOrEmail(identifier, identifier)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
 
         validateAccountStatus(user);
@@ -157,6 +162,62 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByPhone(phone)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return userConverter.toResponse(user);
+    }
+
+    /**
+     * Send OTP to email for password reset.
+     */
+    @Override
+    public void sendForgotPasswordOtp(SendOtpRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+        
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        
+        validateAccountStatus(user);
+
+        // Generate 6-digit OTP
+        String otp = String.format("%06d", new java.util.Random().nextInt(999999));
+        
+        // Save to Redis (5 minutes TTL)
+        redisTemplate.opsForValue().set("otp:reset:" + email, otp, 5, TimeUnit.MINUTES);
+        
+        // Send Email
+        emailService.sendOtpEmail(email, otp);
+    }
+
+    /**
+     * Verify OTP and reset password.
+     */
+    @Override
+    @Transactional
+    public void resetPasswordWithOtp(ResetPasswordRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+        String otp = request.getOtp();
+        String newPassword = request.getNewPassword();
+
+        // Verify OTP from Redis
+        String storedOtp = redisTemplate.opsForValue().get("otp:reset:" + email);
+        if (storedOtp == null) {
+            throw new BusinessException(ErrorCode.OTP_EXPIRED);
+        }
+        if (!storedOtp.equals(otp)) {
+            throw new BusinessException(ErrorCode.OTP_INVALID);
+        }
+
+        // Get User and update password
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        
+        validateAccountStatus(user);
+        
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        resetFailedLoginCount(user);
+        userRepository.save(user);
+
+        // Delete OTP from Redis
+        redisTemplate.delete("otp:reset:" + email);
+        log.info("Password reset successfully for email: {}", email);
     }
 
     // ─── Private helpers ───────────────────────────────────────────────────────

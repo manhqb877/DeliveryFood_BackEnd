@@ -13,6 +13,8 @@ public enum ErrorCode {
     UNAUTHORIZED(1007, "Authentication required"),
     FORBIDDEN(1008, "Access denied"),
     VALIDATION_ERROR(1009, "Invalid request payload"),
+    OTP_INVALID(1010, "Invalid OTP"),
+    OTP_EXPIRED(1011, "OTP has expired"),
     INTERNAL_SERVER_ERROR(9999, "Internal server error");
 
     private final int code;
