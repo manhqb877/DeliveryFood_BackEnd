@@ -2,8 +2,8 @@ server:
   port: 8081
 
 spring:
-  dotenv:
-    directory: ../
+  config:
+    import: optional:file:../.env
   application:
     name: auth-service
   profiles:
