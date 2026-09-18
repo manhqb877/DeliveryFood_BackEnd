@@ -28,6 +28,18 @@ public class AuthController {
     private final AuthService authService;
 
     /**
+     * POST /api/v1/auth/register/send-otp
+     * Send a 6-digit OTP to the user's email for registration verification.
+     */
+    @PostMapping("/register/send-otp")
+    public ResponseEntity<ApiResponse<Void>> sendRegisterOtp(
+            @Valid @RequestBody SendOtpRequest request
+    ) {
+        authService.sendRegisterOtp(request);
+        return ResponseEntity.ok(ApiResponse.success("Registration OTP sent successfully to email", null));
+    }
+
+    /**
      * POST /api/v1/auth/register
      * Register a new user account (CUSTOMER, SHOP_MANAGER, SHIPPER).
      */
@@ -102,6 +114,18 @@ public class AuthController {
     ) {
         authService.sendForgotPasswordOtp(request);
         return ResponseEntity.ok(ApiResponse.success("OTP sent successfully to email", null));
+    }
+
+    /**
+     * POST /api/v1/auth/forgot-password/verify-otp
+     * Verify OTP before allowing the user to reset password.
+     */
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<ApiResponse<Void>> verifyForgotPasswordOtp(
+            @Valid @RequestBody com.fooddelivery.auth.dto.request.VerifyOtpRequest request
+    ) {
+        authService.verifyForgotPasswordOtp(request);
+        return ResponseEntity.ok(ApiResponse.success("OTP verified successfully", null));
     }
 
     /**
