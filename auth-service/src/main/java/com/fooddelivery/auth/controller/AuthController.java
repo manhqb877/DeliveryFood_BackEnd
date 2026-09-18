@@ -71,7 +71,9 @@ public class AuthController {
             @RequestHeader("Authorization") String authHeader,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
-        String token = authHeader.substring("Bearer ".length());
+        String token = (authHeader != null && authHeader.startsWith("Bearer "))
+                ? authHeader.substring(7)
+                : authHeader;
         authService.logout(token, userDetails.getUsername());
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
     }
