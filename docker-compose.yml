@@ -1,0 +1,205 @@
+version: '3.8'
+
+services:
+  # =====================================================================
+  # INFRASTRUCTURE SERVICES: REDIS, KAFKA, ZOOKEEPER
+  # =====================================================================
+  delivery-zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: delivery-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - delivery-net
+
+  delivery-kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: delivery-kafka
+    depends_on:
+      - delivery-zookeeper
+    ports:
+      - "9092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: delivery-zookeeper:2181
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://delivery-kafka:9092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - delivery-net
+
+  delivery-redis:
+    image: redis:7-alpine
+    container_name: delivery-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - delivery-net
+
+  # =====================================================================
+  # API GATEWAY (Port: 8080)
+  # =====================================================================
+  api-gateway:
+    build: ./api-gateway
+    container_name: delivery-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - AUTH_SERVICE_URL=http://delivery-auth-service:8081
+      - CORE_SERVICE_URL=http://delivery-core-service:8082
+      - ORDER_SERVICE_URL=http://delivery-order-service:8083
+      - TRACKING_SERVICE_URL=http://delivery-tracking-service:8084
+      - PAYMENT_SERVICE_URL=http://delivery-payment-service:8085
+      - NOTIFICATION_SERVICE_URL=http://delivery-notification-service:8086
+      - ANALYTICS_SERVICE_URL=http://delivery-analytics-service:8087
+      - SPRING_DATA_REDIS_HOST=delivery-redis
+      - SPRING_DATA_REDIS_PORT=6379
+    depends_on:
+      - auth-service
+      - core-service
+      - order-service
+      - tracking-service
+      - payment-service
+      - notification-service
+      - analytics-service
+      - delivery-redis
+    networks:
+      - delivery-net
+
+  # =====================================================================
+  # MICROSERVICES (Kết nối Cloud PostgreSQL Neon & MongoDB Atlas)
+  # =====================================================================
+
+  # 1. Auth Service (Port: 8081) - PostgreSQL (auth_db)
+  auth-service:
+    build: ./auth-service
+    container_name: delivery-auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SERVER_PORT=8081
+      - SPRING_DATA_REDIS_HOST=delivery-redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+    depends_on:
+      - delivery-redis
+      - delivery-kafka
+    networks:
+      - delivery-net
+
+  # 2. Core Service (Port: 8082) - PostgreSQL (core_db)
+  core-service:
+    build: ./core-service
+    container_name: delivery-core-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SERVER_PORT=8082
+      - SPRING_DATA_REDIS_HOST=delivery-redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+    depends_on:
+      - delivery-redis
+      - delivery-kafka
+    networks:
+      - delivery-net
+
+  # 3. Order Service (Port: 8083) - PostgreSQL (order_db) + MongoDB (review_comment_db)
+  order-service:
+    build: ./order-service
+    container_name: delivery-order-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SERVER_PORT=8083
+      - SPRING_DATA_REDIS_HOST=delivery-redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+    depends_on:
+      - delivery-redis
+      - delivery-kafka
+    networks:
+      - delivery-net
+
+  # 4. Tracking Service (Port: 8084) - PostgreSQL (tracking_db) + MongoDB (tracking_geo_db)
+  tracking-service:
+    build: ./tracking-service
+    container_name: delivery-tracking-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SERVER_PORT=8084
+      - SPRING_DATA_REDIS_HOST=delivery-redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+    depends_on:
+      - delivery-redis
+      - delivery-kafka
+    networks:
+      - delivery-net
+
+  # 5. Payment Service (Port: 8085) - PostgreSQL (payment_db)
+  payment-service:
+    build: ./payment-service
+    container_name: delivery-payment-service
+    ports:
+      - "8085:8085"
+    environment:
+      - SERVER_PORT=8085
+      - SPRING_DATA_REDIS_HOST=delivery-redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+    depends_on:
+      - delivery-redis
+      - delivery-kafka
+    networks:
+      - delivery-net
+
+  # 6. Notification Service (Port: 8086) - MongoDB (notification_db)
+  notification-service:
+    build: ./notification-service
+    container_name: delivery-notification-service
+    ports:
+      - "8086:8086"
+    environment:
+      - SERVER_PORT=8086
+      - SPRING_DATA_REDIS_HOST=delivery-redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+    depends_on:
+      - delivery-redis
+      - delivery-kafka
+    networks:
+      - delivery-net
+
+  # 7. Analytics Service (Port: 8087) - MongoDB (analytics_db)
+  analytics-service:
+    build: ./analytics-service
+    container_name: delivery-analytics-service
+    ports:
+      - "8087:8087"
+    environment:
+      - SERVER_PORT=8087
+      - SPRING_DATA_REDIS_HOST=delivery-redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+    depends_on:
+      - delivery-redis
+      - delivery-kafka
+    networks:
+      - delivery-net
+
+networks:
+  delivery-net:
+    driver: bridge

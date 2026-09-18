@@ -23,7 +23,7 @@ spring:
         default_schema: tracking
 
   flyway:
-    enabled: true
+    enabled: false
     baseline-on-migrate: true
     clean-disabled: false
     clean-on-validation-error: true

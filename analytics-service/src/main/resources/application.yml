@@ -7,28 +7,10 @@ spring:
   profiles:
     active: dev
 
-  datasource:
-    url:
-    username:
-    password:
-    driver-class-name: org.postgresql.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        default_schema: analytics
-
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
-    clean-disabled: false
-    clean-on-validation-error: true
-    schemas: analytics
-    locations: classpath:db/migration
+  # Chỉ sử dụng MongoDB cho Analytics Service (analytics_db)
+  data:
+    mongodb:
+      uri: mongodb+srv://lananhhii121_db_user:lananh123@delivery-system.1fh7sey.mongodb.net/analytics_db?retryWrites=true&w=majority&appName=Delivery-system
 
 openapi:
   service:
@@ -39,7 +21,6 @@ logging:
   level:
     root: INFO
     web: INFO
-    org.flywaydb: INFO
 
 springdoc:
   api-docs:

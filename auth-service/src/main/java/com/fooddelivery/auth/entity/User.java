@@ -45,6 +45,7 @@ public class User {
     @Column(nullable = false, length = 30)
     private UserRole role; // Phân quyền RBAC (CUSTOMER, SHOP_MANAGER, SHIPPER, ADMIN)
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserStatus status = UserStatus.ACTIVE; // Trạng thái tài khoản (ACTIVE, LOCKED, PENDING, DELETED)
@@ -52,6 +53,7 @@ public class User {
     @Column(name = "area_id")
     private Long areaId; // FK tới areas.id (NULL nếu chưa xác thực khu)
 
+    @Builder.Default
     @Column(name = "is_area_verified")
     private Boolean isAreaVerified = false; // TRUE sau khi nhập đúng mã khu vực
 
@@ -75,6 +77,7 @@ public class User {
     @Column(name = "last_login_at")
     private OffsetDateTime lastLoginAt; // Thời gian đăng nhập gần nhất
 
+    @Builder.Default
     @Column(name = "failed_login_count")
     private Short failedLoginCount = 0; // Đếm số lần đăng nhập sai để khóa tạm
 
