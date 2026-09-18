@@ -29,6 +29,7 @@ public class SecurityConfig {
     private final UserDetailsServiceImpl userDetailsService;
 
     private static final String[] PUBLIC_ENDPOINTS = {
+            "/auth/register/**",
             "/auth/register",
             "/auth/login",
             "/auth/refresh",
