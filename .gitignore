@@ -1,0 +1,11 @@
+# Maven build folder
+target/
+**/target/
+
+# Claude settings & logs
+.claude/
+**/.claude/
+
+# Skills folder
+skills/
+**/skills/
