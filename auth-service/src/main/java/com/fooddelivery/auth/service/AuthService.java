@@ -18,4 +18,8 @@ public interface AuthService {
     void logout(String accessToken, String phone);
 
     UserResponse getMyProfile(String phone);
+
+    void sendForgotPasswordOtp(com.fooddelivery.auth.dto.request.SendOtpRequest request);
+
+    void resetPasswordWithOtp(com.fooddelivery.auth.dto.request.ResetPasswordRequest request);
 }
