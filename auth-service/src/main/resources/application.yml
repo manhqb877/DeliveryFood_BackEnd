@@ -8,9 +8,9 @@ spring:
     active: dev
 
   datasource:
-    url: jdbc:postgresql://ep-billowing-silence-b30jkujt-pooler.c-4.ap-southeast-1.aws.neon.tech/auth_db?sslmode=require
-    username: neondb_owner
-    password: npg_R7gOhQBkDUx4
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -35,8 +35,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: thaianvtk@gmail.com
-    password: ddur zdjz pxnf cabe
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
@@ -47,7 +47,7 @@ spring:
 # JWT Configuration
 jwt:
   # Base64-encoded secret — generate with: openssl rand -base64 32
-  secret: 5K9mRzT8sW3vY1nJ7pQ4xB6cL2hF0eA9dG8uN5oX3yV7wZ1iM4kP6
+  secret: ${JWT_SECRET}
   access-token-expiration: 3600000    # 1 hour in ms
   refresh-token-expiration: 604800000 # 7 days in ms
 
