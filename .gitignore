@@ -9,3 +9,7 @@ target/
 # Skills folder
 skills/
 **/skills/
+
+# Environment Variables
+.env
+**/.env
