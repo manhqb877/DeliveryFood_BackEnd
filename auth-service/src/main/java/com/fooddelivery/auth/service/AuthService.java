@@ -19,7 +19,11 @@ public interface AuthService {
 
     UserResponse getMyProfile(String phone);
 
+    void sendRegisterOtp(com.fooddelivery.auth.dto.request.SendOtpRequest request);
+
     void sendForgotPasswordOtp(com.fooddelivery.auth.dto.request.SendOtpRequest request);
+
+    void verifyForgotPasswordOtp(com.fooddelivery.auth.dto.request.VerifyOtpRequest request);
 
     void resetPasswordWithOtp(com.fooddelivery.auth.dto.request.ResetPasswordRequest request);
 }

@@ -20,8 +20,12 @@ public class RegisterRequest {
     @Pattern(regexp = "^(0|\\+84)[0-9]{9}$", message = "Phone number must be a valid 10-digit phone number")
     private String phone;
 
+    @NotBlank(message = "Email must not be blank")
     @Email(message = "Email format is invalid")
     private String email;
+
+    @NotBlank(message = "OTP must not be blank")
+    private String otp;
 
     @NotBlank(message = "Full name must not be blank")
     private String fullName;
