@@ -28,4 +28,6 @@ public interface AuthService {
     void verifyForgotPasswordOtp(com.fooddelivery.auth.dto.request.VerifyOtpRequest request);
 
     void resetPasswordWithOtp(com.fooddelivery.auth.dto.request.ResetPasswordRequest request);
+
+    void changePassword(String phone, com.fooddelivery.auth.dto.request.ChangePasswordRequest request);
 }
