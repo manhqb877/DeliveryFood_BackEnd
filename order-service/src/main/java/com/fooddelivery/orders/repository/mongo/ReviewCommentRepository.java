@@ -1,4 +1,4 @@
-package com.fooddelivery.orders.repository;
+package com.fooddelivery.orders.repository.mongo;
 
 import com.fooddelivery.orders.document.ReviewCommentDocument;
 import org.bson.types.ObjectId;

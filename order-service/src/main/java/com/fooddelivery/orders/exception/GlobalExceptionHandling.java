@@ -13,6 +13,8 @@ import lombok.Setter;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
@@ -32,6 +34,7 @@ public class GlobalExceptionHandling {
      * @param request
      * @return errorResponse
      */
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler({ConstraintViolationException.class,
             MissingServletRequestParameterException.class, MethodArgumentNotValidException.class})
     @ApiResponses(value = {
@@ -85,6 +88,7 @@ public class GlobalExceptionHandling {
      * @param request
      * @return
      */
+    @ResponseStatus(HttpStatus.FORBIDDEN)
     @ExceptionHandler({ForBiddenException.class, AccessDeniedException.class})
     @ApiResponses(value = {
             @ApiResponse(responseCode = "403", description = "Forbidden",
@@ -121,6 +125,7 @@ public class GlobalExceptionHandling {
      * @param request
      * @return
      */
+    @ResponseStatus(HttpStatus.NOT_FOUND)
     @ExceptionHandler(ResourceNotFoundException.class)
     @ApiResponses(value = {
             @ApiResponse(responseCode = "404", description = "Not Found",
@@ -157,6 +162,7 @@ public class GlobalExceptionHandling {
      * @param request
      * @return
      */
+    @ResponseStatus(HttpStatus.CONFLICT)
     @ExceptionHandler(InvalidDataException.class)
     @ApiResponses(value = {
             @ApiResponse(responseCode = "409", description = "Conflict",
@@ -193,6 +199,7 @@ public class GlobalExceptionHandling {
      * @param request
      * @return error
      */
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     @ExceptionHandler(Exception.class)
     @ApiResponses(value = {
             @ApiResponse(responseCode = "500", description = "Internal Server Error",
