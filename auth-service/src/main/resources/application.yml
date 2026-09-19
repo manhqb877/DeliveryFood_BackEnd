@@ -46,6 +46,11 @@ spring:
           starttls:
             enable: true
 
+vietmap:
+  api:
+    key: ${VIETMAP_API_KEY}
+    url: "https://maps.vietmap.vn/api/search/v3"
+
 # JWT Configuration
 jwt:
   # Base64-encoded secret — generate with: openssl rand -base64 32

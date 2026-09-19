@@ -151,4 +151,17 @@ public class AuthController {
         authService.resetPasswordWithOtp(request);
         return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
     }
+
+    /**
+     * POST /api/v1/auth/change-password
+     * Change password for the currently authenticated user.
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody com.fooddelivery.auth.dto.request.ChangePasswordRequest request
+    ) {
+        authService.changePassword(userDetails.getUsername(), request);
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
+    }
 }

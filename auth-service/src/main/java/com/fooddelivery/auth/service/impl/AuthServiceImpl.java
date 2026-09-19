@@ -286,6 +286,29 @@ public class AuthServiceImpl implements AuthService {
         log.info("Password reset successfully for email: {}", email);
     }
 
+    @Override
+    @Transactional
+    public void changePassword(String phone, com.fooddelivery.auth.dto.request.ChangePasswordRequest request) {
+        User user = userRepository.findByPhone(phone)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        validateAccountStatus(user);
+
+        // Verify old password
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Mật khẩu cũ không chính xác");
+        }
+
+        // Encode and set new password
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // Invalidate all active tokens by deleting the refresh token from Redis
+        redisTemplate.delete(REFRESH_TOKEN_PREFIX + phone);
+        
+        log.info("Password changed successfully for phone: {}", phone);
+    }
+
     // ─── Private helpers ───────────────────────────────────────────────────────
 
     private void validatePhoneNotTaken(String phone) {
