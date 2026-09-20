@@ -16,5 +16,9 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long> {
 
     List<Promotion> findByShopIdOrderByCreatedAtDesc(Long shopId);
 
+    List<Promotion> findByScopeInAndIsActiveTrueAndApprovalStatus(List<com.fooddelivery.core.enums.PromoScope> scopes, String approvalStatus);
+
+    List<Promotion> findByShopIdAndIsActiveTrueAndApprovalStatus(Long shopId, String approvalStatus);
+
     boolean existsByCode(String code);
 }
