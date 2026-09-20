@@ -44,6 +44,31 @@ public class PromotionServiceImpl implements PromotionService {
     }
 
     @Override
+    public List<PromotionResponse> getActiveShopPromotions(Long shopId) {
+        OffsetDateTime now = OffsetDateTime.now();
+        return promotionRepository.findByShopIdAndIsActiveTrueAndApprovalStatus(shopId, "APPROVED")
+                .stream()
+                .filter(p -> p.getValidUntil() == null || !p.getValidUntil().isBefore(now))
+                .filter(p -> p.getValidFrom() == null || p.getValidFrom().minusHours(24).isBefore(now))
+                .filter(p -> p.getTotalLimit() == null || p.getUsedCount() == null || p.getUsedCount() < p.getTotalLimit())
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PromotionResponse> getActivePlatformPromotions() {
+        OffsetDateTime now = OffsetDateTime.now();
+        List<PromoScope> scopes = List.of(PromoScope.PLATFORM, PromoScope.AREA);
+        return promotionRepository.findByScopeInAndIsActiveTrueAndApprovalStatus(scopes, "APPROVED")
+                .stream()
+                .filter(p -> p.getValidUntil() == null || !p.getValidUntil().isBefore(now))
+                .filter(p -> p.getValidFrom() == null || p.getValidFrom().minusHours(24).isBefore(now))
+                .filter(p -> p.getTotalLimit() == null || p.getUsedCount() == null || p.getUsedCount() < p.getTotalLimit())
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public PromotionResponse createShopPromotion(Long shopId, CreatePromotionRequest request) {
         String normalizedCode = request.getCode().trim().toUpperCase().replaceAll("\\s+", "");
@@ -65,11 +90,8 @@ public class PromotionServiceImpl implements PromotionService {
         short perUserLimit = request.getPerUserLimit() != null && request.getPerUserLimit() > 0 ? request.getPerUserLimit() : (short) 1;
         BigDecimal minOrder = request.getMinOrderValue() != null ? request.getMinOrderValue() : BigDecimal.ZERO;
 
-        // Auto-approve if standard promo, else PENDING for admin review if big discount (> 50%)
-        String approvalStatus = "APPROVED";
-        if (request.getPromoType() == PromoType.PERCENT && request.getDiscountValue().compareTo(new BigDecimal("50")) > 0) {
-            approvalStatus = "PENDING";
-        }
+        // Shop promotions require Admin approval by default
+        String approvalStatus = "PENDING";
 
         Promotion promo = Promotion.builder()
                 .code(normalizedCode)
