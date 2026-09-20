@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface ShopProfileRepository extends JpaRepository<ShopProfile, Long> {
     List<ShopProfile> findByOwnerId(Long ownerId);
+    java.util.Optional<ShopProfile> findFirstByOwnerId(Long ownerId);
+    List<ShopProfile> findByApprovalStatus(com.fooddelivery.auth.enums.ApprovalStatus approvalStatus);
 }
