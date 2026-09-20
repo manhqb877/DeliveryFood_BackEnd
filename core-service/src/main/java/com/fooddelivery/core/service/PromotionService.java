@@ -13,6 +13,10 @@ public interface PromotionService {
 
     List<PromotionResponse> getShopPromotions(Long shopId);
 
+    List<PromotionResponse> getActiveShopPromotions(Long shopId);
+
+    List<PromotionResponse> getActivePlatformPromotions();
+
     PromotionResponse createShopPromotion(Long shopId, CreatePromotionRequest request);
 
     PromotionResponse togglePromotionStatus(Long promotionId, Boolean isActive);
