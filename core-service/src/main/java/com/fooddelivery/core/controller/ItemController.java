@@ -25,4 +25,10 @@ public class ItemController {
     public ResponseEntity<java.util.List<ItemDto>> searchItems(@org.springframework.web.bind.annotation.RequestParam String keyword) {
         return ResponseEntity.ok(itemService.searchItems(keyword));
     }
+
+    @org.springframework.web.bind.annotation.PostMapping("/deduct-stock")
+    public ResponseEntity<Void> deductStock(@jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody com.fooddelivery.core.dto.request.DeductStockRequest request) {
+        itemService.deductStock(request);
+        return ResponseEntity.ok().build();
+    }
 }
