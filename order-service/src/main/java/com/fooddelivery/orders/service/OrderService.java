@@ -217,6 +217,14 @@ public class OrderService {
         }).collect(Collectors.toList());
     }
 
+    public List<OrderResponse> getAllOrders() {
+        List<Order> orders = orderRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "placedAt"));
+        return orders.stream().map(order -> {
+            List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+            return mapToResponse(order, items);
+        }).collect(Collectors.toList());
+    }
+
     @Transactional
     public OrderResponse updateOrderStatus(Long orderId, UpdateOrderStatusRequest request) {
         Order order = orderRepository.findById(orderId)

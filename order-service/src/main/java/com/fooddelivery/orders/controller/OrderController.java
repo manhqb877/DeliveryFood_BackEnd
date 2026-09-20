@@ -9,12 +9,25 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
+@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/orders")
 @RequiredArgsConstructor
 public class OrderController {
 
     private final OrderService orderService;
+
+    @GetMapping("/admin/all")
+    public ResponseEntity<List<OrderResponse>> getAllOrdersForAdmin() {
+        List<OrderResponse> responses = orderService.getAllOrders();
+        return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<OrderResponse>> getAllOrders() {
+        List<OrderResponse> responses = orderService.getAllOrders();
+        return ResponseEntity.ok(responses);
+    }
 
     @PostMapping
     public ResponseEntity<OrderResponse> placeOrder(
