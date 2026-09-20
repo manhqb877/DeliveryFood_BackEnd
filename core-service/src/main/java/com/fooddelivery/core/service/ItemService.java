@@ -129,4 +129,25 @@ public class ItemService {
             return builder.build();
         }).collect(Collectors.toList());
     }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void deductStock(com.fooddelivery.core.dto.request.DeductStockRequest request) {
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            return;
+        }
+
+        for (var reqItem : request.getItems()) {
+            if (reqItem.getItemId() == null) continue;
+            int qty = reqItem.getQuantity() != null && reqItem.getQuantity() > 0 ? reqItem.getQuantity() : 1;
+
+            Item item = itemRepository.findById(reqItem.getItemId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Món ăn #" + reqItem.getItemId() + " không tồn tại"));
+
+            int updated = itemRepository.deductStockAtomic(reqItem.getItemId(), qty);
+            if (updated == 0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Món \"" + item.getName() + "\" đã hết hàng hoặc không đủ số lượng tồn kho để đặt!");
+            }
+        }
+    }
 }
