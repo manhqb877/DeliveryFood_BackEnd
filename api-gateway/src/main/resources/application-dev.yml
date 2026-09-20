@@ -104,7 +104,7 @@ spring:
         - id: notification-service
           uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
           predicates:
-            - Path=/api/v1/notification/**, /notification/**, /notifications/**, /api/v1/messages/**, /messages/**, /api/v1/conversations/**, /conversations/**
+            - Path=/api/v1/notifications/**, /api/v1/notification/**, /notification/**, /notifications/**, /api/v1/messages/**, /messages/**, /api/v1/conversations/**, /conversations/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
