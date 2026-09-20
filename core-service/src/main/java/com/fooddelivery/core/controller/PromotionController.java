@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/promotions")
 @RequiredArgsConstructor
@@ -27,6 +28,24 @@ public class PromotionController {
         return ResponseEntity.ok(responses);
     }
 
+    @GetMapping("/shop/{shopId}/active")
+    public ResponseEntity<List<PromotionResponse>> getActiveShopPromotions(@PathVariable Long shopId) {
+        List<PromotionResponse> responses = promotionService.getActiveShopPromotions(shopId);
+        return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/platform")
+    public ResponseEntity<List<PromotionResponse>> getActivePlatformPromotions() {
+        List<PromotionResponse> responses = promotionService.getActivePlatformPromotions();
+        return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/global")
+    public ResponseEntity<List<PromotionResponse>> getActiveGlobalPromotions() {
+        List<PromotionResponse> responses = promotionService.getActivePlatformPromotions();
+        return ResponseEntity.ok(responses);
+    }
+
     @PostMapping("/shop/{shopId}")
     public ResponseEntity<PromotionResponse> createShopPromotion(
             @PathVariable Long shopId,
@@ -36,12 +55,18 @@ public class PromotionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PatchMapping("/{id}/toggle")
+    @RequestMapping(value = "/{id}/toggle", method = {RequestMethod.PATCH, RequestMethod.PUT})
     public ResponseEntity<PromotionResponse> togglePromotion(
             @PathVariable Long id,
-            @RequestParam Boolean isActive
+            @RequestParam(required = false) Boolean isActive,
+            @RequestBody(required = false) java.util.Map<String, Object> body
     ) {
-        PromotionResponse response = promotionService.togglePromotionStatus(id, isActive);
+        Boolean active = isActive;
+        if (active == null && body != null && body.containsKey("isActive")) {
+            active = Boolean.valueOf(String.valueOf(body.get("isActive")));
+        }
+        if (active == null) active = true;
+        PromotionResponse response = promotionService.togglePromotionStatus(id, active);
         return ResponseEntity.ok(response);
     }
 
@@ -94,13 +119,23 @@ public class PromotionController {
     /**
      * Admin: Approve or Reject a shop promotion
      */
-    @PostMapping("/admin/{id}/approve")
+    @RequestMapping(value = "/admin/{id}/approve", method = {RequestMethod.POST, RequestMethod.PUT})
     public ResponseEntity<PromotionResponse> approveOrRejectPromotion(
             @PathVariable Long id,
-            @RequestParam Boolean approved,
-            @RequestParam(required = false) String reason
+            @RequestParam(required = false) Boolean approved,
+            @RequestParam(required = false) String reason,
+            @RequestBody(required = false) java.util.Map<String, Object> body
     ) {
-        PromotionResponse response = promotionService.approveOrRejectPromotion(id, approved, reason);
+        Boolean isApproved = approved;
+        String rejReason = reason;
+        if (isApproved == null && body != null && body.containsKey("approved")) {
+            isApproved = Boolean.valueOf(String.valueOf(body.get("approved")));
+        }
+        if (rejReason == null && body != null && body.containsKey("rejectionReason")) {
+            rejReason = (String) body.get("rejectionReason");
+        }
+        if (isApproved == null) isApproved = true;
+        PromotionResponse response = promotionService.approveOrRejectPromotion(id, isApproved, rejReason);
         return ResponseEntity.ok(response);
     }
 }
