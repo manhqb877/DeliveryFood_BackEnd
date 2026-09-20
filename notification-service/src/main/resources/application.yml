@@ -12,6 +12,19 @@ spring:
     mongodb:
       uri: mongodb+srv://lananhhii121_db_user:lananh123@delivery-system.1fh7sey.mongodb.net/notification_db?retryWrites=true&w=majority&appName=Delivery-system
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "*"
+        spring.json.type.mapping: orderEvent:com.fooddelivery.notification.dto.event.OrderEvent
+        spring.json.value.default.type: com.fooddelivery.notification.dto.event.OrderEvent
+
 openapi:
   service:
     title: Notification Service API
