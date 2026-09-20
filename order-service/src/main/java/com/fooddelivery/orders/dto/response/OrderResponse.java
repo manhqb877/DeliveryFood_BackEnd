@@ -28,9 +28,14 @@ public class OrderResponse {
     private String orderStatus;
     
     private String orderNote;
+    private String cancelReason;
+    private String cancelledBy;
     
     private OffsetDateTime placedAt;
     private OffsetDateTime confirmedAt;
+    private OffsetDateTime readyAt;
+    private OffsetDateTime completedAt;
+    private OffsetDateTime cancelledAt;
     
     private List<OrderItemResponse> items;
 }

@@ -39,6 +39,15 @@ spring:
       uri: mongodb+srv://lananhhii121_db_user:lananh123@delivery-system.1fh7sey.mongodb.net/review_comment_db?retryWrites=true&w=majority&appName=Delivery-system
       auto-index-creation: true
 
+  # Cấu hình Kafka Producer
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.type.mapping: orderEvent:com.fooddelivery.orders.dto.event.OrderEvent
+
 openapi:
   service:
     title: Order Service API

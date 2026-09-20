@@ -46,4 +46,19 @@ public class OrderController {
         OrderResponse response = orderService.getOrderByCode(orderCode);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/shop/{shopId}")
+    public ResponseEntity<List<OrderResponse>> getShopOrders(@PathVariable Long shopId) {
+        List<OrderResponse> responses = orderService.getShopOrders(shopId);
+        return ResponseEntity.ok(responses);
+    }
+
+    @PutMapping("/{id}/status")
+    public ResponseEntity<OrderResponse> updateOrderStatus(
+            @PathVariable Long id,
+            @RequestBody @Valid com.fooddelivery.orders.dto.request.UpdateOrderStatusRequest request
+    ) {
+        OrderResponse response = orderService.updateOrderStatus(id, request);
+        return ResponseEntity.ok(response);
+    }
 }
