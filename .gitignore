@@ -13,3 +13,7 @@ skills/
 # Environment Variables
 .env
 **/.env
+# Node
+node_modules/
+package-lock.json
+package.json
