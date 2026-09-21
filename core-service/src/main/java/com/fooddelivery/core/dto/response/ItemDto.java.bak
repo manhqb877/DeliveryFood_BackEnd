@@ -18,7 +18,6 @@ public class ItemDto {
     private String description;
     private String imageUrl;
     private BigDecimal basePrice;
-    private BigDecimal discountPrice;
     private String status;
     private BigDecimal avgRating;
     private Integer totalReviews;
@@ -27,10 +26,4 @@ public class ItemDto {
     private String priceName;
     private Long shopId;
     private String shopName;
-    private Long categoryId;
-    private String categoryName;
-    private Integer dailyLimit;
-    private Short prepTimeMinutes;
-    private List<String> tags;
-    private Short sortOrder;
 }

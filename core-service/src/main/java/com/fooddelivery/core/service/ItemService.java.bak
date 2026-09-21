@@ -27,7 +27,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -40,7 +39,6 @@ public class ItemService {
 
     private final ItemRepository itemRepository;
     private final ItemOptionRepository itemOptionRepository;
-    private final com.fooddelivery.core.repository.CategoryOptionRepository categoryOptionRepository;
     private final ItemPriceRepository itemPriceRepository;
     private final ShopRepository shopRepository;
     private final CategoryRepository categoryRepository;
@@ -108,18 +106,12 @@ public class ItemService {
                 .id(item.getId())
                 .shopId(item.getShop().getId())
                 .shopName(item.getShop().getShopName())
-                .categoryId(item.getCategory().getId())
-                .categoryName(item.getCategory().getName())
                 .name(item.getName())
                 .description(item.getDescription())
                 .imageUrl(item.getImageUrl())
                 .status(item.getStatus().name())
                 .avgRating(item.getAvgRating())
                 .totalReviews(item.getTotalReviews())
-                .dailyLimit(item.getDailyLimit())
-                .prepTimeMinutes(item.getPrepTimeMinutes())
-                .tags(item.getTags() != null ? Arrays.asList(item.getTags()) : List.of())
-                .sortOrder(item.getSortOrder())
                 .options(optionDtos)
                 .discountPrice(item.getDiscountPrice());
 
@@ -140,20 +132,13 @@ public class ItemService {
                 .id(item.getId())
                 .shopId(item.getShop().getId())
                 .shopName(item.getShop().getShopName())
-                .categoryId(item.getCategory().getId())
-                .categoryName(item.getCategory().getName())
                 .name(item.getName())
                 .description(item.getDescription())
                 .imageUrl(item.getImageUrl())
                 .status(item.getStatus().name())
                 .avgRating(item.getAvgRating())
                 .totalReviews(item.getTotalReviews())
-                .dailyLimit(item.getDailyLimit())
-                .prepTimeMinutes(item.getPrepTimeMinutes())
-                .tags(item.getTags() != null ? Arrays.asList(item.getTags()) : List.of())
-                .sortOrder(item.getSortOrder())
-                .options(List.of())
-                .discountPrice(item.getDiscountPrice());
+                .options(List.of());
 
             applyDynamicPricing(item, builder);
             return builder.build();
@@ -197,7 +182,6 @@ public class ItemService {
                 .description(request.getDescription())
                 .imageUrl(request.getImageUrl())
                 .basePrice(request.getBasePrice())
-                .discountPrice(request.getDiscountPrice())
                 .status(ItemStatus.valueOf(request.getStatus() != null ? request.getStatus() : "AVAILABLE"))
                 .dailyLimit(request.getDailyLimit())
                 .prepTimeMinutes(request.getPrepTimeMinutes() != null ? request.getPrepTimeMinutes() : 10)
@@ -303,7 +287,11 @@ public class ItemService {
     }
 
     public List<ItemOptionDto> getSuggestedOptionsByCategory(Long categoryId) {
-        return categoryOptionRepository.findByCategoryId(categoryId).stream()
+        List<ItemOption> allOptions = itemOptionRepository.findOptionsByCategoryId(categoryId);
+        
+        // Return unique options based on groupName + optionName
+        return allOptions.stream()
+                .filter(distinctByKey(opt -> opt.getGroupName() + "|" + opt.getOptionName()))
                 .map(opt -> ItemOptionDto.builder()
                         .groupName(opt.getGroupName())
                         .optionName(opt.getOptionName())
@@ -315,37 +303,32 @@ public class ItemService {
                 .collect(Collectors.toList());
     }
 
+    public static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
+        Map<Object, Boolean> seen = new ConcurrentHashMap<>();
+        return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
+    }
+
     @Transactional
     public void addBulkOptionToCategory(Long categoryId, ItemOptionRequest request) {
-        Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Category not found"));
-        
-        com.fooddelivery.core.entity.CategoryOption newOpt = com.fooddelivery.core.entity.CategoryOption.builder()
-                .category(category)
-                .groupName(request.getGroupName())
-                .optionName(request.getOptionName())
-                .extraPrice(request.getExtraPrice())
-                .isRequired(request.getIsRequired())
-                .isMultiple(request.getIsMultiple())
-                .maxSelect(request.getMaxSelect())
-                .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
-                .isActive(true)
-                .build();
-        categoryOptionRepository.save(newOpt);
+        List<Item> items = itemRepository.findByCategoryId(categoryId);
+        for (Item item : items) {
+            ItemOption newOpt = ItemOption.builder()
+                    .item(item)
+                    .groupName(request.getGroupName())
+                    .optionName(request.getOptionName())
+                    .extraPrice(request.getExtraPrice())
+                    .isRequired(request.getIsRequired())
+                    .isMultiple(request.getIsMultiple())
+                    .maxSelect(request.getMaxSelect())
+                    .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
+                    .isActive(true)
+                    .build();
+            itemOptionRepository.save(newOpt);
+        }
     }
 
     @Transactional
     public void updateBulkOptionInCategory(Long categoryId, BulkItemOptionUpdateRequest request) {
-        // Update in category templates
-        categoryOptionRepository.updateByCategoryAndNames(
-                categoryId,
-                request.getOldGroupName(), request.getOldOptionName(),
-                request.getNewOption().getGroupName(), request.getNewOption().getOptionName(),
-                request.getNewOption().getExtraPrice(), request.getNewOption().getIsRequired(),
-                request.getNewOption().getIsMultiple(), request.getNewOption().getMaxSelect(),
-                request.getNewOption().getSortOrder() != null ? request.getNewOption().getSortOrder() : (short)0);
-                
-        // Cascade update to existing ticked options in items
         itemOptionRepository.updateByCategoryAndNames(
                 categoryId,
                 request.getOldGroupName(), request.getOldOptionName(),
@@ -357,9 +340,6 @@ public class ItemService {
 
     @Transactional
     public void deleteBulkOptionInCategory(Long categoryId, String groupName, String optionName) {
-        // Delete from category templates
-        categoryOptionRepository.deleteByCategoryAndNames(categoryId, groupName, optionName);
-        // Cascade delete from existing ticked options in items
         itemOptionRepository.deleteByCategoryAndNames(categoryId, groupName, optionName);
     }
 }
