@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -39,6 +40,15 @@ public class Category {
 
     @Column(name = "is_active")
     private Boolean isActive = true; // Trạng thái hoạt động
+
+    @Column(name = "icon_emoji", length = 10)
+    private String iconEmoji;
+
+    @Column(name = "available_from")
+    private LocalTime availableFrom;
+
+    @Column(name = "available_until")
+    private LocalTime availableUntil;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

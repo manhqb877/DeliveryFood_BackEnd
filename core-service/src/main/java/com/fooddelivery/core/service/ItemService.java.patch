@@ -1,0 +1,50 @@
+--- src/main/java/com/fooddelivery/core/service/ItemService.java
++++ src/main/java/com/fooddelivery/core/service/ItemService.java
+@@ -3,6 +3,7 @@
+ import com.fooddelivery.core.dto.request.ItemOptionRequest;
+ import com.fooddelivery.core.dto.request.ItemPriceRequest;
+ import com.fooddelivery.core.dto.request.ItemRequest;
++import com.fooddelivery.core.dto.request.BulkItemOptionUpdateRequest;
+ import com.fooddelivery.core.dto.response.ItemDto;
+ import com.fooddelivery.core.dto.response.ItemOptionDto;
+ import com.fooddelivery.core.dto.response.ItemPriceDto;
+@@ -303,5 +304,39 @@
+         Map<Object, Boolean> seen = new ConcurrentHashMap<>();
+         return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
+     }
++
++    @Transactional
++    public void addBulkOptionToCategory(Long categoryId, ItemOptionRequest request) {
++        List<Item> items = itemRepository.findByCategoryIdOrderBySortOrderAsc(categoryId);
++        for (Item item : items) {
++            ItemOption newOpt = ItemOption.builder()
++                    .item(item)
++                    .groupName(request.getGroupName())
++                    .optionName(request.getOptionName())
++                    .extraPrice(request.getExtraPrice())
++                    .isRequired(request.getIsRequired())
++                    .isMultiple(request.getIsMultiple())
++                    .maxSelect(request.getMaxSelect())
++                    .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0)
++                    .isActive(true)
++                    .build();
++            itemOptionRepository.save(newOpt);
++        }
++    }
++
++    @Transactional
++    public void updateBulkOptionInCategory(Long categoryId, BulkItemOptionUpdateRequest request) {
++        itemOptionRepository.updateByCategoryAndNames(
++                categoryId,
++                request.getOldGroupName(), request.getOldOptionName(),
++                request.getNewOption().getGroupName(), request.getNewOption().getOptionName(),
++                request.getNewOption().getExtraPrice(), request.getNewOption().getIsRequired(),
++                request.getNewOption().getIsMultiple(), request.getNewOption().getMaxSelect(),
++                request.getNewOption().getSortOrder() != null ? request.getNewOption().getSortOrder() : 0);
++    }
++
++    @Transactional
++    public void deleteBulkOptionInCategory(Long categoryId, String groupName, String optionName) {
++        itemOptionRepository.deleteByCategoryAndNames(categoryId, groupName, optionName);
++    }
+ }
