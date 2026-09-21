@@ -48,6 +48,9 @@ public class Item {
     @Column(name = "base_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal basePrice; // Giá gốc cơ bản (fallback khi không có rule giá theo thời điểm)
 
+    @Column(name = "discount_price", precision = 12, scale = 2)
+    private BigDecimal discountPrice; // Giá sau giảm (tuỳ chọn)
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ItemStatus status = ItemStatus.AVAILABLE; // Trạng thái món (AVAILABLE, SOLD_OUT, HIDDEN, DISCONTINUED)

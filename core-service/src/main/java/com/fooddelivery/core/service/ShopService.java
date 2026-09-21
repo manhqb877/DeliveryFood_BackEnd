@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -45,7 +46,8 @@ public class ShopService {
                 .orElseThrow(() -> new ResourceNotFoundException("Shop not found"));
 
         List<Category> categories = categoryRepository.findByShopIdAndIsActiveTrueOrderBySortOrderAsc(shopId);
-        List<Item> allItems = itemRepository.findByShopIdAndStatusNot(shopId, ItemStatus.HIDDEN);
+        List<Item> allItems = itemRepository.findByShopIdAndStatusIn(shopId, 
+                java.util.Arrays.asList(com.fooddelivery.core.enums.ItemStatus.AVAILABLE, com.fooddelivery.core.enums.ItemStatus.SOLD_OUT));
         
         List<Long> itemIds = allItems.stream().map(Item::getId).collect(Collectors.toList());
         List<ItemOption> allOptions = itemIds.isEmpty() ? new ArrayList<>() : 
@@ -82,12 +84,21 @@ public class ShopService {
 
                 ItemDto.ItemDtoBuilder builder = ItemDto.builder()
                         .id(item.getId())
+                        .shopId(item.getShop().getId())
+                        .shopName(item.getShop().getShopName())
+                        .categoryId(item.getCategory().getId())
+                        .categoryName(item.getCategory().getName())
                         .name(item.getName())
                         .description(item.getDescription())
                         .imageUrl(item.getImageUrl())
                         .status(item.getStatus().name())
                         .avgRating(item.getAvgRating())
                         .totalReviews(item.getTotalReviews())
+                        .dailyLimit(item.getDailyLimit())
+                        .prepTimeMinutes(item.getPrepTimeMinutes())
+                        .tags(item.getTags() != null ? java.util.Arrays.asList(item.getTags()) : java.util.List.of())
+                        .sortOrder(item.getSortOrder())
+                        .discountPrice(item.getDiscountPrice())
                         .options(optionDtos);
                 
                 List<com.fooddelivery.core.entity.ItemPrice> itemPrices = activePricesByItemId.getOrDefault(item.getId(), new ArrayList<>());
