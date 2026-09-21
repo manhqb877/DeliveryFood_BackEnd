@@ -12,7 +12,9 @@ import java.util.List;
 @Repository
 public interface ItemRepository extends JpaRepository<Item, Long> {
     List<Item> findByShopIdAndStatusNot(Long shopId, com.fooddelivery.core.enums.ItemStatus status);
+    List<Item> findByShopIdAndStatusIn(Long shopId, List<com.fooddelivery.core.enums.ItemStatus> statuses);
     List<Item> findByNameContainingIgnoreCaseAndStatusNot(String keyword, com.fooddelivery.core.enums.ItemStatus status);
+    List<Item> findByCategoryId(Long categoryId);
 
     @Modifying
     @Query("UPDATE Item i SET i.dailySold = COALESCE(i.dailySold, 0) + :quantity, " +
