@@ -11,6 +11,8 @@ public interface AuthService {
 
     RegisterResponse register(RegisterRequest request);
 
+    RegisterResponse registerShipper(com.fooddelivery.auth.dto.request.RegisterShipperRequest request);
+
     LoginResponse login(LoginRequest request);
 
     LoginResponse refreshToken(RefreshTokenRequest request);

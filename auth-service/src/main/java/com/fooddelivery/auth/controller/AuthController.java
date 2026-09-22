@@ -61,7 +61,16 @@ public class AuthController {
     ) {
         RegisterResponse response = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.created("Registration successful", response));
+                .body(ApiResponse.success("Registration successful", response));
+    }
+
+    @PostMapping("/register-shipper")
+    public ResponseEntity<ApiResponse<RegisterResponse>> registerShipper(
+            @Valid @RequestBody com.fooddelivery.auth.dto.request.RegisterShipperRequest request
+    ) {
+        RegisterResponse response = authService.registerShipper(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Shipper registration successful", response));
     }
 
     /**

@@ -42,6 +42,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
     private final EmailService emailService;
+    private final com.fooddelivery.auth.repository.ShipperProfileRepository shipperProfileRepository;
+    private final com.fooddelivery.auth.repository.UserAddressRepository userAddressRepository;
 
     /**
      * Register a new user account.
@@ -70,11 +72,74 @@ public class AuthServiceImpl implements AuthService {
         // Delete OTP from Redis
         redisTemplate.delete("otp:register:" + email);
 
-        log.info("User registered successfully with id: {} and phone: {}", savedUser.getId(), savedUser.getPhone());
+        log.info("Registered successfully for phone: {}", request.getPhone());
 
         return RegisterResponse.builder()
                 .user(userConverter.toResponse(savedUser))
                 .message("Registration successful")
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public RegisterResponse registerShipper(com.fooddelivery.auth.dto.request.RegisterShipperRequest request) {
+        log.info("Shipper registration attempt for phone: {}", request.getPhone());
+
+        validatePhoneNotTaken(request.getPhone());
+        if (request.getEmail() != null && !request.getEmail().isEmpty()) {
+            validateEmailNotTaken(request.getEmail());
+        }
+
+        // Verify OTP from Redis (using phone number instead of email for shipper OTP since email is optional)
+        String identifier = (request.getEmail() != null && !request.getEmail().isEmpty()) ? request.getEmail().trim().toLowerCase() : request.getPhone();
+        String storedOtp = redisTemplate.opsForValue().get("otp:register:" + identifier);
+        
+        if (storedOtp == null) {
+            throw new BusinessException(ErrorCode.OTP_EXPIRED);
+        }
+        if (!storedOtp.equals(request.getOtp())) {
+            throw new BusinessException(ErrorCode.OTP_INVALID);
+        }
+
+        // 1. Save User (Status = PENDING since they need approval)
+        User user = User.builder()
+                .phone(request.getPhone())
+                .email(request.getEmail())
+                .fullName(request.getFullName())
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .role(com.fooddelivery.auth.enums.UserRole.SHIPPER)
+                .status(com.fooddelivery.auth.enums.UserStatus.PENDING)
+                .build();
+        User savedUser = userRepository.save(user);
+
+        // 2. Save ShipperProfile
+        com.fooddelivery.auth.entity.ShipperProfile profile = com.fooddelivery.auth.entity.ShipperProfile.builder()
+                .user(savedUser)
+                .vehicleType(request.getVehicleType())
+                .vehiclePlate(request.getVehiclePlate())
+                .approvalStatus(com.fooddelivery.auth.enums.ApprovalStatus.PENDING)
+                .avgRating(new java.math.BigDecimal("5.00"))
+                .totalDeliveries(0)
+                .build();
+        shipperProfileRepository.save(profile);
+
+        // 3. Save UserAddress
+        com.fooddelivery.auth.entity.UserAddress address = com.fooddelivery.auth.entity.UserAddress.builder()
+                .user(savedUser)
+                .addressLine(request.getAddressLine())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .isDefault(true)
+                .build();
+        userAddressRepository.save(address);
+
+        // Delete OTP from Redis
+        redisTemplate.delete("otp:register:" + identifier);
+
+        log.info("Shipper registered successfully for phone: {}", request.getPhone());
+        return RegisterResponse.builder()
+                .user(userConverter.toResponse(savedUser))
+                .message("Shipper registration successful, pending approval")
                 .build();
     }
 
@@ -193,7 +258,7 @@ public class AuthServiceImpl implements AuthService {
         redisTemplate.opsForValue().set("otp:register:" + email, otp, 5, TimeUnit.MINUTES);
         
         // Send Email
-        emailService.sendOtpEmail(email, otp);
+        emailService.sendRegistrationOtpEmail(email, otp);
     }
 
     /**
@@ -232,7 +297,7 @@ public class AuthServiceImpl implements AuthService {
         redisTemplate.opsForValue().set("otp:reset:" + email, otp, 5, TimeUnit.MINUTES);
         
         // Send Email
-        emailService.sendOtpEmail(email, otp);
+        emailService.sendPasswordResetOtpEmail(email, otp);
     }
 
     /**

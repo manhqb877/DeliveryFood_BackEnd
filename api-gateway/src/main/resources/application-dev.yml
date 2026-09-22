@@ -82,7 +82,7 @@ spring:
         - id: order-service
           uri: ${ORDER_SERVICE_URL:http://localhost:8083}
           predicates:
-            - Path=/api/v1/orders/**, /orders/**, /api/v1/carts/**, /carts/**, /api/v1/reviews/**, /reviews/**, /api/v1/complaints/**, /complaints/**
+            - Path=/api/v1/orders/**, /orders/**, /api/v1/carts/**, /carts/**, /api/v1/reviews/**, /reviews/**, /api/v1/complaints/**, /complaints/**, /api/v1/remittances/**, /remittances/**, /api/v1/commission-configs/**, /commission-configs/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 

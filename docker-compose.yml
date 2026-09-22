@@ -130,6 +130,10 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      - CORE_SERVICE_URL=http://core-service:8082
+      - TRACKING_SERVICE_URL=http://tracking-service:8084
+      - PAYMENT_SERVICE_URL=http://payment-service:8085
     depends_on:
       - delivery-redis
       - delivery-kafka

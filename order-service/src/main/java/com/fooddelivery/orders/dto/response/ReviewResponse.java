@@ -19,6 +19,10 @@ public class ReviewResponse {
     private Long shopId;
     private Short shopRating;
     private String shopComment;
+    private Long deliveryId;
+    private Long shipperId;
+    private Short shipperRating;
+    private String shipperComment;
     private String[] imageUrls;
     private String shopReply;
     private OffsetDateTime shopRepliedAt;
