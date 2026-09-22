@@ -1,0 +1,31 @@
+--- /Users/thaian/Documents/KLTN_DeliveryFood/Code/DeliveryFood_BackEnd/order-service/src/main/java/com/fooddelivery/orders/service/OrderService.java
++++ /Users/thaian/Documents/KLTN_DeliveryFood/Code/DeliveryFood_BackEnd/order-service/src/main/java/com/fooddelivery/orders/service/OrderService.java
+@@ -6,6 +6,7 @@
+ import com.fooddelivery.orders.dto.request.UpdateOrderStatusRequest;
+ import com.fooddelivery.orders.dto.response.OrderItemResponse;
+ import com.fooddelivery.orders.dto.response.OrderResponse;
++import com.fooddelivery.orders.dto.response.OrderStatusHistoryResponse;
+ import com.fooddelivery.orders.entity.*;
+ import com.fooddelivery.orders.enums.ActorType;
+ import com.fooddelivery.orders.enums.OrderStatus;
+@@ -337,4 +338,18 @@
+         }
+         return response;
+     }
++
++    @Transactional(readOnly = true)
++    public List<OrderStatusHistoryResponse> getOrderHistory(Long orderId) {
++        return statusHistoryRepository.findByOrderIdOrderByCreatedAtDesc(orderId).stream()
++                .map(history -> OrderStatusHistoryResponse.builder()
++                        .id(history.getId())
++                        .orderId(history.getOrderId())
++                        .oldStatus(history.getOldStatus())
++                        .newStatus(history.getNewStatus())
++                        .actorType(history.getActorType())
++                        .actorId(history.getActorId())
++                        .reason(history.getReason())
++                        .createdAt(history.getCreatedAt())
++                        .build())
++                .collect(Collectors.toList());
++    }
+ }

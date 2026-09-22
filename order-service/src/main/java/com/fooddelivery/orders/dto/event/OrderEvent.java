@@ -25,6 +25,8 @@ public class OrderEvent implements Serializable {
     private String customerName;
     private String customerPhone;
     private String deliveryAddress;
+    private Double deliveryLat;
+    private Double deliveryLng;
     private BigDecimal totalAmount;
     private String paymentMethod;
     private String orderStatus;

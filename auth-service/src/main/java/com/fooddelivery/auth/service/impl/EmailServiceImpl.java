@@ -19,8 +19,26 @@ public class EmailServiceImpl implements EmailService {
     private String senderEmail;
 
     @Override
-    public void sendOtpEmail(String toEmail, String otp) {
-        log.info("Sending OTP to email: {}", toEmail);
+    public void sendRegistrationOtpEmail(String toEmail, String otp) {
+        log.info("Sending Registration OTP to email: {}", toEmail);
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(senderEmail);
+            message.setTo(toEmail);
+            message.setSubject("DeliveryFood - Registration OTP");
+            message.setText("Hello,\n\nYour OTP for registration is: " + otp + "\n\nThis OTP will expire in 5 minutes.\nIf you did not request this, please ignore this email.\n\nThanks,\nDeliveryFood Team");
+
+            javaMailSender.send(message);
+            log.info("Registration OTP sent successfully to email: {}", toEmail);
+        } catch (Exception e) {
+            log.error("Failed to send OTP email to {}", toEmail, e);
+            throw new RuntimeException("Failed to send email");
+        }
+    }
+
+    @Override
+    public void sendPasswordResetOtpEmail(String toEmail, String otp) {
+        log.info("Sending Password Reset OTP to email: {}", toEmail);
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(senderEmail);
@@ -29,7 +47,7 @@ public class EmailServiceImpl implements EmailService {
             message.setText("Hello,\n\nYour OTP for password reset is: " + otp + "\n\nThis OTP will expire in 5 minutes.\nIf you did not request this, please ignore this email.\n\nThanks,\nDeliveryFood Team");
 
             javaMailSender.send(message);
-            log.info("OTP sent successfully to email: {}", toEmail);
+            log.info("Password Reset OTP sent successfully to email: {}", toEmail);
         } catch (Exception e) {
             log.error("Failed to send OTP email to {}", toEmail, e);
             throw new RuntimeException("Failed to send email");
