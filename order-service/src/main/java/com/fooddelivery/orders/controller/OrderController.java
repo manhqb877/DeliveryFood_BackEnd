@@ -1,7 +1,9 @@
 package com.fooddelivery.orders.controller;
 
 import com.fooddelivery.orders.dto.request.OrderRequest;
+import com.fooddelivery.orders.dto.response.OrderItemResponse;
 import com.fooddelivery.orders.dto.response.OrderResponse;
+import com.fooddelivery.orders.dto.response.OrderStatusHistoryResponse;
 import com.fooddelivery.orders.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -56,8 +58,12 @@ public class OrderController {
 
     @GetMapping("/code/{orderCode}")
     public ResponseEntity<OrderResponse> getOrderByCode(@PathVariable String orderCode) {
-        OrderResponse response = orderService.getOrderByCode(orderCode);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(orderService.getOrderByCode(orderCode));
+    }
+
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<OrderStatusHistoryResponse>> getOrderHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.getOrderHistory(id));
     }
 
     @GetMapping("/shop/{shopId}")

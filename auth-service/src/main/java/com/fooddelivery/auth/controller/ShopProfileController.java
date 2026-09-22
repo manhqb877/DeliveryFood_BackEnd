@@ -40,8 +40,15 @@ public class ShopProfileController {
                 .body(ApiResponse.created("Shop profile registered successfully, awaiting Admin approval", response));
     }
 
+    @GetMapping("/shops/{id}")
+    public ResponseEntity<ApiResponse<ShopProfileResponse>> getShopById(@PathVariable Long id) {
+        ShopProfileResponse response = shopProfileService.getShopProfileById(id);
+        return ResponseEntity.ok(ApiResponse.success("Shop profile retrieved successfully", response));
+    }
+
     /**
      * GET /api/v1/auth/shops/me
+
      * Get shop profile for the currently logged-in Shop Manager.
      */
     @GetMapping("/shops/me")

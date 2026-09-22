@@ -31,6 +31,9 @@ public class Delivery {
     @Column(name = "order_id", nullable = false, unique = true)
     private Long orderId; // ID đơn hàng (1 order = 1 delivery)
 
+    @Column(name = "order_code", length = 100)
+    private String orderCode; // Mã đơn hàng thực tế
+
     @Column(name = "area_id", nullable = false)
     private Long areaId; // ID khu vực
 
