@@ -9,6 +9,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +36,10 @@ public class OrderEventProducer {
                     : Collections.emptyList();
 
             String customerName = extractField(order.getDeliveryAddress(), "recipientName");
-            String customerPhone = extractField(order.getDeliveryAddress(), "phoneNumber");
-            String addressText = extractField(order.getDeliveryAddress(), "address");
+            String customerPhone = extractFieldMulti(order.getDeliveryAddress(), "recipientPhone", "phoneNumber");
+            String addressText = extractFieldMulti(order.getDeliveryAddress(), "fullAddress", "address");
+            Double lat = extractDoubleMulti(order.getDeliveryAddress(), "latitude", "lat");
+            Double lng = extractDoubleMulti(order.getDeliveryAddress(), "longitude", "lng");
 
             OrderEvent event = OrderEvent.builder()
                     .eventId(UUID.randomUUID().toString())
@@ -49,6 +52,8 @@ public class OrderEventProducer {
                     .customerName(customerName)
                     .customerPhone(customerPhone)
                     .deliveryAddress(addressText)
+                    .deliveryLat(lat)
+                    .deliveryLng(lng)
                     .totalAmount(order.getTotalAmount())
                     .paymentMethod(order.getPaymentMethod() != null ? order.getPaymentMethod().name() : "COD")
                     .orderStatus(order.getOrderStatus() != null ? order.getOrderStatus().name() : "PLACED")
@@ -78,8 +83,10 @@ public class OrderEventProducer {
     public void publishOrderStatusChanged(Order order, String oldStatus, String newStatus) {
         try {
             String customerName = extractField(order.getDeliveryAddress(), "recipientName");
-            String customerPhone = extractField(order.getDeliveryAddress(), "phoneNumber");
-            String addressText = extractField(order.getDeliveryAddress(), "address");
+            String customerPhone = extractFieldMulti(order.getDeliveryAddress(), "recipientPhone", "phoneNumber");
+            String addressText = extractFieldMulti(order.getDeliveryAddress(), "fullAddress", "address");
+            Double lat = extractDoubleMulti(order.getDeliveryAddress(), "latitude", "lat");
+            Double lng = extractDoubleMulti(order.getDeliveryAddress(), "longitude", "lng");
 
             OrderEvent event = OrderEvent.builder()
                     .eventId(UUID.randomUUID().toString())
@@ -92,6 +99,8 @@ public class OrderEventProducer {
                     .customerName(customerName)
                     .customerPhone(customerPhone)
                     .deliveryAddress(addressText)
+                    .deliveryLat(lat)
+                    .deliveryLng(lng)
                     .totalAmount(order.getTotalAmount())
                     .paymentMethod(order.getPaymentMethod() != null ? order.getPaymentMethod().name() : "COD")
                     .orderStatus(newStatus)
@@ -116,6 +125,36 @@ public class OrderEventProducer {
     }
 
     private String extractField(Map<String, Object> map, String key) {
+        if (map == null) return null;
+        Object val = map.get(key);
+        return val != null ? val.toString() : null;
+    }
+
+    private String extractFieldMulti(Map<String, Object> map, String... keys) {
+        if (map == null) return null;
+        for (String key : keys) {
+            Object val = map.get(key);
+            if (val != null && !val.toString().isBlank()) return val.toString();
+        }
+        return null;
+    }
+
+    private Double extractDoubleMulti(Map<String, Object> map, String... keys) {
+        if (map == null) return null;
+        for (String key : keys) {
+            Object val = map.get(key);
+            if (val != null) {
+                try {
+                    return Double.parseDouble(val.toString());
+                } catch (NumberFormatException e) {
+                    // Ignore and try next key
+                }
+            }
+        }
+        return null;
+    }
+
+    private String extractFieldOld(Map<String, Object> map, String key) {
         if (map == null) return null;
         Object val = map.get(key);
         return val != null ? val.toString() : null;

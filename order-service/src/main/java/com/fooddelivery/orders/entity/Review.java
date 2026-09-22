@@ -44,7 +44,10 @@ public class Review {
     private String shopComment; // Nội dung đánh giá quán
 
     @Column(name = "delivery_id")
-    private Long deliveryId; // ID giao hàng tương ứng
+    private Long deliveryId; // ID chuyến giao hàng (từ tracking-service)
+
+    @Column(name = "shipper_id")
+    private Long shipperId; // ID Shipper được đánh giá
 
     @Column(name = "shipper_rating")
     private Short shipperRating; // Điểm đánh giá shipper (1 đến 5)

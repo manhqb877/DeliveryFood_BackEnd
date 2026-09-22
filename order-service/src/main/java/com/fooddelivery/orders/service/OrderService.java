@@ -4,6 +4,7 @@ import com.fooddelivery.orders.dto.request.OrderRequest;
 import com.fooddelivery.orders.dto.request.UpdateOrderStatusRequest;
 import com.fooddelivery.orders.dto.response.OrderItemResponse;
 import com.fooddelivery.orders.dto.response.OrderResponse;
+import com.fooddelivery.orders.dto.response.OrderStatusHistoryResponse;
 import com.fooddelivery.orders.entity.*;
 import com.fooddelivery.orders.enums.ActorType;
 import com.fooddelivery.orders.enums.OrderStatus;
@@ -38,6 +39,7 @@ public class OrderService {
     private final CartItemRepository cartItemRepository;
     private final RestTemplate restTemplate;
     private final com.fooddelivery.orders.kafka.OrderEventProducer orderEventProducer;
+    private final CodRemittanceService codRemittanceService;
 
     @Transactional
     public OrderResponse placeOrder(OrderRequest request, Long userId, Long guestSessionId) {
@@ -209,6 +211,22 @@ public class OrderService {
         }).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<OrderStatusHistoryResponse> getOrderHistory(Long orderId) {
+        return statusHistoryRepository.findByOrderIdOrderByCreatedAtDesc(orderId).stream()
+                .map(history -> OrderStatusHistoryResponse.builder()
+                        .id(history.getId())
+                        .orderId(history.getOrderId())
+                        .oldStatus(history.getOldStatus())
+                        .newStatus(history.getNewStatus())
+                        .actorType(history.getActorType())
+                        .actorId(history.getActorId())
+                        .note(history.getNote())
+                        .createdAt(history.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
     public List<OrderResponse> getShopOrders(Long shopId) {
         List<Order> orders = orderRepository.findByShopIdOrderByPlacedAtDesc(shopId);
         return orders.stream().map(order -> {
@@ -244,6 +262,19 @@ public class OrderService {
             order.setReadyAt(now);
         } else if (newStatus == OrderStatus.DELIVERED) {
             order.setDeliveredAt(now);
+            codRemittanceService.generateRemittanceIfApplicable(order);
+            try {
+                String trackingUrl = System.getenv().getOrDefault("TRACKING_SERVICE_URL", "http://localhost:8084");
+                java.util.Map<String, Object> deliveryInfo = restTemplate.getForObject(trackingUrl + "/tracking/deliveries/order/" + order.getId(), java.util.Map.class);
+                if (deliveryInfo != null && deliveryInfo.get("shipperId") != null) {
+                    Long shipperId = Long.valueOf(deliveryInfo.get("shipperId").toString());
+                    String authUrl = System.getenv().getOrDefault("AUTH_SERVICE_URL", "http://localhost:8081");
+                        restTemplate.postForLocation(authUrl + "/auth/shippers/" + shipperId + "/increment-delivery", null);
+                        log.info("Incremented total deliveries for shipper {}", shipperId);
+                    }
+            } catch (Exception e) {
+                log.warn("Could not increment deliveries for order {}: {}", order.getId(), e.getMessage());
+            }
         } else if (newStatus == OrderStatus.COMPLETED) {
             order.setCompletedAt(now);
         } else if (newStatus == OrderStatus.CANCELLED) {
