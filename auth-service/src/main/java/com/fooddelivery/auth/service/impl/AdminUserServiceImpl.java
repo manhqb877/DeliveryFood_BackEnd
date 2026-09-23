@@ -54,6 +54,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                 .status(user.getStatus())
                 .areaId(user.getAreaId())
                 .isAreaVerified(user.getIsAreaVerified())
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 }
