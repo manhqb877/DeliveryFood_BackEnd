@@ -142,6 +142,36 @@ public class ReviewService {
             productReviewRepository.saveAll(productReviews);
         }
 
+        // --- Fraud Detection Logic ---
+        try {
+            String analyticsUrl = System.getenv().getOrDefault("ANALYTICS_SERVICE_URL", "http://localhost:8087");
+            
+            if (request.getShopRating() != null && request.getShopRating() <= 2) {
+                Map<String, Object> payload = Map.of(
+                        "alertType", "SHOP_FRAUD",
+                        "severity", request.getShopRating() == 1 ? "HIGH" : "MEDIUM",
+                        "userId", userId != null ? userId : (guestSessionId != null ? guestSessionId : 0),
+                        "orderId", order.getId(),
+                        "description", "Quán bị đánh giá " + request.getShopRating() + " sao" + (request.getShopComment() != null ? ": " + request.getShopComment() : "")
+                );
+                restTemplate.postForObject(analyticsUrl + "/analytics/admin/fraud-alerts/internal", payload, Map.class);
+            }
+
+            if (request.getShipperRating() != null && request.getShipperRating() <= 2) {
+                Map<String, Object> payload = Map.of(
+                        "alertType", "SHIPPER_FRAUD",
+                        "severity", request.getShipperRating() == 1 ? "HIGH" : "MEDIUM",
+                        "userId", userId != null ? userId : (guestSessionId != null ? guestSessionId : 0),
+                        "orderId", order.getId(),
+                        "shipperId", shipperId != null ? shipperId : 0,
+                        "description", "Shipper bị đánh giá " + request.getShipperRating() + " sao" + (request.getShipperComment() != null ? ": " + request.getShipperComment() : "")
+                );
+                restTemplate.postForObject(analyticsUrl + "/analytics/admin/fraud-alerts/internal", payload, Map.class);
+            }
+        } catch (Exception e) {
+            log.warn("Could not create fraud alert: {}", e.getMessage());
+        }
+
         return toResponse(saved);
     }
 
