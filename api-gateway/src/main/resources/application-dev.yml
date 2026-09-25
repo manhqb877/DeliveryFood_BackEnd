@@ -110,6 +110,13 @@ spring:
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
+        # 6b. WebSocket Chat (Notification Service)
+        - id: notification-service-websocket
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/ws-chat/**
+
+
         # 7. Analytics Service (port 8087)
         - id: analytics-service
           uri: ${ANALYTICS_SERVICE_URL:http://localhost:8087}
