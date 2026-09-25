@@ -35,6 +35,7 @@ public class MessageDocument {
     @Field("sender_id")
     private Long senderId; // ID cụ thể của người gửi
 
+    @Builder.Default
     @Field("message_type")
     private MessageType messageType = MessageType.TEXT; // Loại tin nhắn (TEXT, IMAGE, ORDER_LINK, SYSTEM)
 
@@ -44,12 +45,14 @@ public class MessageDocument {
     @Field("attachment_url")
     private String attachmentUrl; // Đường dẫn file/ảnh đính kèm nếu có
 
+    @Builder.Default
     @Field("is_read")
     private Boolean isRead = false; // Trạng thái đã đọc tin nhắn
 
     @Field("read_at")
     private Instant readAt; // Thời điểm đọc
 
+    @Builder.Default
     @Field("created_at")
     private Instant createdAt = Instant.now(); // Thời điểm gửi tin nhắn
 }
