@@ -6,6 +6,7 @@ import com.fooddelivery.notification.enums.NotificationChannel;
 import com.fooddelivery.notification.enums.NotificationStatus;
 import com.fooddelivery.notification.enums.NotificationType;
 import com.fooddelivery.notification.repository.NotificationLogRepository;
+import com.fooddelivery.notification.service.NotificationBroadcastService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -21,6 +22,7 @@ import java.util.Map;
 public class UserEventConsumer {
 
     private final NotificationLogRepository notificationLogRepository;
+    private final NotificationBroadcastService notificationBroadcastService;
 
     @KafkaListener(topics = "user-events", groupId = "notification-service-group")
     public void consumeUserEvent(UserEvent event) {
@@ -67,7 +69,8 @@ public class UserEventConsumer {
                         .createdAt(Instant.now())
                         .build();
 
-                notificationLogRepository.save(userNotification);
+                userNotification = notificationLogRepository.save(userNotification);
+                notificationBroadcastService.broadcast(userNotification, "CUSTOMER");
                 log.info("Saved user account notification for userId={}", event.getUserId());
             }
         } catch (Exception e) {

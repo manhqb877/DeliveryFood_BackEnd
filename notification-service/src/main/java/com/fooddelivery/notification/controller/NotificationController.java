@@ -49,6 +49,24 @@ public class NotificationController {
                 .build());
     }
 
+    @PatchMapping("/recipient/{recipientId}/read-all")
+    @Operation(summary = "Đánh dấu tất cả thông báo của người nhận là đã đọc")
+    public ResponseEntity<ApiResponse> markAllAsRead(@PathVariable Long recipientId) {
+        List<NotificationLogDocument> unreadDocs = notificationLogRepository.findByRecipientIdAndReadAtIsNull(recipientId);
+        Instant now = Instant.now();
+        unreadDocs.forEach(doc -> {
+            doc.setReadAt(now);
+            doc.setStatus(NotificationStatus.READ);
+        });
+        notificationLogRepository.saveAll(unreadDocs);
+        log.info("Marked {} notifications as read for recipientId={}", unreadDocs.size(), recipientId);
+        return ResponseEntity.ok(ApiResponse.builder()
+                .status(200)
+                .message("Marked all as read")
+                .data(unreadDocs.size())
+                .build());
+    }
+
     @PatchMapping("/{id}/read")
     @Operation(summary = "Đánh dấu thông báo đã đọc")
     public ResponseEntity<ApiResponse> markAsRead(@PathVariable String id) {
