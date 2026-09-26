@@ -10,5 +10,6 @@ import java.util.List;
 @Repository
 public interface NotificationLogRepository extends MongoRepository<NotificationLogDocument, ObjectId> {
     List<NotificationLogDocument> findByRecipientIdOrderByCreatedAtDesc(Long recipientId);
+    List<NotificationLogDocument> findByRecipientIdAndReadAtIsNull(Long recipientId);
     long countByRecipientIdAndReadAtIsNull(Long recipientId);
 }
