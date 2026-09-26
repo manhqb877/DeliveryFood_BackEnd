@@ -6,6 +6,7 @@ import com.fooddelivery.notification.enums.NotificationChannel;
 import com.fooddelivery.notification.enums.NotificationStatus;
 import com.fooddelivery.notification.enums.NotificationType;
 import com.fooddelivery.notification.repository.NotificationLogRepository;
+import com.fooddelivery.notification.service.NotificationBroadcastService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -23,6 +24,7 @@ import java.util.Map;
 public class OrderEventConsumer {
 
     private final NotificationLogRepository notificationLogRepository;
+    private final NotificationBroadcastService notificationBroadcastService;
 
     @KafkaListener(topics = "order-events", groupId = "notification-service-group")
     public void consumeOrderEvent(OrderEvent event) {
@@ -72,7 +74,8 @@ public class OrderEventConsumer {
                     .createdAt(Instant.now())
                     .build();
 
-            notificationLogRepository.save(customerNotification);
+            customerNotification = notificationLogRepository.save(customerNotification);
+            notificationBroadcastService.broadcast(customerNotification, "CUSTOMER");
             log.info("Created customer notification for order #{}", event.getOrderCode());
         }
 
@@ -100,7 +103,9 @@ public class OrderEventConsumer {
                     .createdAt(Instant.now())
                     .build();
 
-            notificationLogRepository.save(shopNotification);
+            shopNotification = notificationLogRepository.save(shopNotification);
+            notificationBroadcastService.broadcast(shopNotification, "SHOP");
+            notificationBroadcastService.broadcastToAdmin(shopNotification);
             log.info("Created shop notification for order #{} (shopId={})", event.getOrderCode(), event.getShopId());
         }
     }
@@ -166,7 +171,27 @@ public class OrderEventConsumer {
                 .createdAt(Instant.now())
                 .build();
 
-        notificationLogRepository.save(statusNotification);
+        statusNotification = notificationLogRepository.save(statusNotification);
+        notificationBroadcastService.broadcast(statusNotification, "CUSTOMER");
+        notificationBroadcastService.broadcastToAdmin(statusNotification);
+
+        // Đồng thời cập nhật thông báo cho Shop nếu trạng thái thay đổi bởi Shipper/Hệ thống
+        if (event.getShopId() != null && ("DELIVERED".equals(status) || "COMPLETED".equals(status) || "CANCELLED".equals(status) || "DELIVERING".equals(status))) {
+            NotificationLogDocument shopStatusNotification = NotificationLogDocument.builder()
+                    .recipientId(event.getShopId())
+                    .channel(NotificationChannel.IN_APP)
+                    .notificationType(NotificationType.ORDER_STATUS)
+                    .title("Đơn #" + event.getOrderCode() + ": " + title)
+                    .body("Đơn hàng #" + event.getOrderCode() + " chuyển sang: " + status)
+                    .data(data)
+                    .status(NotificationStatus.SENT)
+                    .referenceId(event.getOrderId())
+                    .createdAt(Instant.now())
+                    .build();
+            shopStatusNotification = notificationLogRepository.save(shopStatusNotification);
+            notificationBroadcastService.broadcast(shopStatusNotification, "SHOP");
+        }
+
         log.info("Created status update notification ({}) for order #{}", status, event.getOrderCode());
     }
 
