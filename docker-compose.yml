@@ -58,6 +58,7 @@ services:
       - PAYMENT_SERVICE_URL=http://delivery-payment-service:8085
       - NOTIFICATION_SERVICE_URL=http://delivery-notification-service:8086
       - ANALYTICS_SERVICE_URL=http://delivery-analytics-service:8087
+      - AI_AGENT_SERVICE_URL=http://delivery-ai-agent-service:8088
       - SPRING_DATA_REDIS_HOST=delivery-redis
       - SPRING_DATA_REDIS_PORT=6379
     depends_on:
@@ -68,6 +69,7 @@ services:
       - payment-service
       - notification-service
       - analytics-service
+      - ai-agent-service
       - delivery-redis
     networks:
       - delivery-net
@@ -217,6 +219,39 @@ services:
     depends_on:
       - delivery-redis
       - delivery-kafka
+    networks:
+      - delivery-net
+
+  # 8. AI Agent Service (Port: 8088) - Python/FastAPI
+  ai-agent-service:
+    build: ./ai-agent-service
+    container_name: delivery-ai-agent-service
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./ai-agent-service/app:/app/app
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-${ANTHROPIC_API_KEY}}
+      - LLM_PROVIDER=gemini
+      - LLM_MODEL=gemini-3.5-flash-lite
+      - REDIS_HOST=delivery-redis
+      - REDIS_PORT=6379
+      - REDIS_DB=1
+      - SESSION_TTL_SECONDS=10800
+      - AUTH_SERVICE_URL=http://delivery-auth-service:8081
+      - CORE_SERVICE_URL=http://delivery-core-service:8082
+      - ORDER_SERVICE_URL=http://delivery-order-service:8083
+      - PAYMENT_SERVICE_URL=http://delivery-payment-service:8085
+      - ANALYTICS_SERVICE_URL=http://delivery-analytics-service:8087
+      - PORT=8088
+    depends_on:
+      - delivery-redis
+      - auth-service
+      - core-service
+      - order-service
+      - payment-service
+      - analytics-service
     networks:
       - delivery-net
 
