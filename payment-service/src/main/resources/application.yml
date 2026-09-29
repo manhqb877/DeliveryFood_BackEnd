@@ -38,6 +38,17 @@ openapi:
     title: Payment Service API
     version: 1.0.0
 
+payment:
+  sepay:
+    bank-name: ${SEPAY_BANK_NAME:MBBank}
+    account-number: ${SEPAY_ACCOUNT_NUMBER:025452790502}
+    account-holder: ${SEPAY_ACCOUNT_HOLDER:NGUYEN THAI AN}
+    api-token: ${SEPAY_API_TOKEN:}
+
+order:
+  service:
+    url: ${ORDER_SERVICE_URL:http://localhost:8083}
+
 logging:
   level:
     root: INFO

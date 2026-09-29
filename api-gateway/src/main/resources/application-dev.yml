@@ -101,7 +101,7 @@ spring:
         - id: payment-service
           uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
           predicates:
-            - Path=/api/v1/payment/**, /payment/**, /payments/**, /api/v1/wallets/**, /wallets/**, /api/v1/transactions/**, /transactions/**
+            - Path=/api/v1/payments/**, /api/v1/payment/**, /payment/**, /payments/**, /api/v1/wallets/**, /wallets/**, /api/v1/transactions/**, /transactions/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
