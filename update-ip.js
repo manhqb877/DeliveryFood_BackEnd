@@ -90,40 +90,46 @@ function updateEnvKey(envPath, key, value, label) {
 // ─── 2. Cập nhật AppCustomer (Mobile Khách Hàng) ──────────────────────────────
 console.log('📱 1. Cập nhật AppCustomer (Mobile Khách Hàng & Thanh Toán SePay VietQR):');
 const customerDir = path.join(rootDir, 'DeliveryFood_Mobile/AppCustomer');
-updateEnvKey(path.join(customerDir, '.env'), 'LOCAL_IP', localIp, 'AppCustomer/.env');
-
-const customerApiClient = path.join(customerDir, 'src/api/apiClient.js');
-replaceInFile(
-  customerApiClient,
-  /export const GATEWAY_URL = 'http:\/\/[^:]+:8080';/g,
-  `export const GATEWAY_URL = 'http://${localIp}:8080';`,
-  'AppCustomer/src/api/apiClient.js (GATEWAY_URL)'
-);
-replaceInFile(
-  customerApiClient,
-  /http:\/\/(localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):8080\/api\/v1/g,
-  `http://${localIp}:8080/api/v1`,
-  'AppCustomer/src/api/apiClient.js (BASE_URL)'
-);
+if (fs.existsSync(customerDir)) {
+  updateEnvKey(path.join(customerDir, '.env'), 'LOCAL_IP', localIp, 'AppCustomer/.env');
+  const customerApiClient = path.join(customerDir, 'src/api/apiClient.js');
+  replaceInFile(
+    customerApiClient,
+    /export const GATEWAY_URL = 'http:\/\/[^:]+:8080';/g,
+    `export const GATEWAY_URL = 'http://${localIp}:8080';`,
+    'AppCustomer/src/api/apiClient.js (GATEWAY_URL)'
+  );
+  replaceInFile(
+    customerApiClient,
+    /http:\/\/(localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):8080\/api\/v1/g,
+    `http://${localIp}:8080/api/v1`,
+    'AppCustomer/src/api/apiClient.js (BASE_URL)'
+  );
+} else {
+  console.log('  ➖ Không tìm thấy thư mục DeliveryFood_Mobile/AppCustomer (bỏ qua)');
+}
 
 // ─── 3. Cập nhật AppShipper (Mobile Tài Xế) ───────────────────────────────────
 console.log('\n🛵 2. Cập nhật AppShipper (Mobile Tài Xế Giao Hàng):');
 const shipperDir = path.join(rootDir, 'DeliveryFood_Mobile/AppShipper');
-updateEnvKey(path.join(shipperDir, '.env'), 'LOCAL_IP', localIp, 'AppShipper/.env');
-
-const shipperApiClient = path.join(shipperDir, 'src/lib/apiClient.js');
-replaceInFile(
-  shipperApiClient,
-  /const BASE_URL = 'http:\/\/[^:]+:8080\/api\/v1';/g,
-  `const BASE_URL = 'http://${localIp}:8080/api/v1';`,
-  'AppShipper/src/lib/apiClient.js (BASE_URL)'
-);
-replaceInFile(
-  shipperApiClient,
-  /http:\/\/(localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):8080\/api\/v1/g,
-  `http://${localIp}:8080/api/v1`,
-  'AppShipper/src/lib/apiClient.js (Fallback URL)'
-);
+if (fs.existsSync(shipperDir)) {
+  updateEnvKey(path.join(shipperDir, '.env'), 'LOCAL_IP', localIp, 'AppShipper/.env');
+  const shipperApiClient = path.join(shipperDir, 'src/lib/apiClient.js');
+  replaceInFile(
+    shipperApiClient,
+    /const BASE_URL = 'http:\/\/[^:]+:8080\/api\/v1';/g,
+    `const BASE_URL = 'http://${localIp}:8080/api/v1';`,
+    'AppShipper/src/lib/apiClient.js (BASE_URL)'
+  );
+  replaceInFile(
+    shipperApiClient,
+    /http:\/\/(localhost|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):8080\/api\/v1/g,
+    `http://${localIp}:8080/api/v1`,
+    'AppShipper/src/lib/apiClient.js (Fallback URL)'
+  );
+} else {
+  console.log('  ➖ Không tìm thấy thư mục DeliveryFood_Mobile/AppShipper (bỏ qua)');
+}
 
 // ─── 4. Cập nhật Web Portal (Next.js Customer Web) ────────────────────────────
 console.log('\n💻 3. Cập nhật Web Customer (Next.js apps/web):');
