@@ -9,5 +9,6 @@ public enum PaymentGateway {
     ZALOPAY,
     COD,
     WALLET,
+    SEPAY,
     INTERNAL
 }

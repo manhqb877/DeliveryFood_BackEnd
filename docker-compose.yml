@@ -36,7 +36,7 @@ services:
     image: redis:7-alpine
     container_name: delivery-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     networks:
       - delivery-net
 
@@ -176,9 +176,15 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - ORDER_SERVICE_URL=http://delivery-order-service:8083
+      - SEPAY_API_TOKEN=${SEPAY_API_TOKEN:-}
+      - SEPAY_BANK_NAME=${SEPAY_BANK_NAME:-MBBank}
+      - SEPAY_ACCOUNT_NUMBER=${SEPAY_ACCOUNT_NUMBER:-025452790502}
+      - SEPAY_ACCOUNT_HOLDER=${SEPAY_ACCOUNT_HOLDER:-NGUYEN THAI AN}
     depends_on:
       - delivery-redis
       - delivery-kafka
+      - order-service
     networks:
       - delivery-net
 
