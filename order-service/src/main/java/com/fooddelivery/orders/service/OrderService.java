@@ -354,4 +354,26 @@ public class OrderService {
                 .items(itemResponses)
                 .build();
     }
+
+    @Transactional
+    public OrderResponse markOrderAsPaid(Long orderId, String transactionId, String paymentGateway) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found with id: " + orderId));
+        order.setPaymentStatus(PaymentStatus.PAID);
+        Order updatedOrder = orderRepository.save(order);
+
+        OrderStatusHistory history = OrderStatusHistory.builder()
+                .orderId(updatedOrder.getId())
+                .newStatus(updatedOrder.getOrderStatus())
+                .actorType(ActorType.SYSTEM)
+                .note("Đã thanh toán thành công qua " + (paymentGateway != null ? paymentGateway : "SEPAY")
+                        + (transactionId != null ? " (Mã GD: " + transactionId + ")" : ""))
+                .build();
+        statusHistoryRepository.save(history);
+
+        log.info("Order {} marked as PAID via {}", orderId, paymentGateway);
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(updatedOrder.getId());
+        return mapToResponse(updatedOrder, items);
+    }
 }

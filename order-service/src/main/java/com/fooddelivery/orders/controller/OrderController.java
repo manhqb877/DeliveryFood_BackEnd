@@ -86,4 +86,14 @@ public class OrderController {
         OrderResponse response = orderService.updateOrderStatus(id, request);
         return ResponseEntity.ok(response);
     }
+
+    @PutMapping("/{id}/pay")
+    public ResponseEntity<OrderResponse> markOrderAsPaid(
+            @PathVariable Long id,
+            @RequestParam(required = false) String transactionId,
+            @RequestParam(required = false, defaultValue = "SEPAY") String gateway
+    ) {
+        OrderResponse response = orderService.markOrderAsPaid(id, transactionId, gateway);
+        return ResponseEntity.ok(response);
+    }
 }
