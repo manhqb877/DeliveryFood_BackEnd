@@ -11,4 +11,5 @@ public interface CartService {
     ApiResponse updateCartItem(Long cartItemId, Long userId, Long guestSessionId, UpdateCartItemRequest request);
     ApiResponse removeCartItem(Long cartItemId, Long userId, Long guestSessionId);
     ApiResponse clearCart(Long cartId, Long userId, Long guestSessionId);
+    ApiResponse mergeCarts(Long userId, Long guestSessionId);
 }

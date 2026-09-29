@@ -42,6 +42,18 @@ public class CartController {
     }
 
     /**
+     * POST /carts/merge?userId=&guestSessionId=
+     * Hợp nhất giỏ hàng của guest vào tài khoản user khi đăng nhập
+     */
+    @PostMapping("/merge")
+    public ResponseEntity<ApiResponse> mergeCarts(
+            @RequestParam Long userId,
+            @RequestParam Long guestSessionId) {
+        ApiResponse response = cartService.mergeCarts(userId, guestSessionId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * POST /carts/items
      * Thêm món vào giỏ hàng
      */

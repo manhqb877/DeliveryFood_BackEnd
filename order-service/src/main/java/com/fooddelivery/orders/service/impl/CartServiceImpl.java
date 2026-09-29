@@ -39,7 +39,16 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
+    @Transactional
     public ApiResponse getAllCarts(Long userId, Long guestSessionId) {
+        if (userId != null && guestSessionId != null) {
+            try {
+                mergeCarts(userId, guestSessionId);
+            } catch (Exception e) {
+                log.warn("Failed to merge guest cart {} into user {}: {}", guestSessionId, userId, e.getMessage());
+            }
+        }
+
         List<Cart> carts;
         if (userId != null) {
             carts = cartRepository.findAllByUserId(userId);
@@ -55,6 +64,59 @@ public class CartServiceImpl implements CartService {
             result.add(buildCartResponse(cart, items));
         }
         return ApiResponse.builder().status(200).message("Success").data(result).build();
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse mergeCarts(Long userId, Long guestSessionId) {
+        if (userId == null || guestSessionId == null) {
+            return ApiResponse.builder().status(400).message("Both userId and guestSessionId are required").build();
+        }
+
+        List<Cart> guestCarts = cartRepository.findAllByGuestSessionId(guestSessionId);
+        if (guestCarts.isEmpty()) {
+            return ApiResponse.builder().status(200).message("No guest carts to merge").build();
+        }
+
+        for (Cart guestCart : guestCarts) {
+            Long shopId = guestCart.getShopId();
+            Optional<Cart> userCartOpt = cartRepository.findByUserIdAndShopId(userId, shopId);
+
+            if (userCartOpt.isPresent()) {
+                Cart userCart = userCartOpt.get();
+                List<CartItem> guestItems = cartItemRepository.findAllByCartId(guestCart.getId());
+                List<CartItem> userItems = cartItemRepository.findAllByCartId(userCart.getId());
+
+                for (CartItem guestItem : guestItems) {
+                    Optional<CartItem> matchingUserItem = userItems.stream().filter(ui ->
+                            ui.getItemId().equals(guestItem.getItemId()) &&
+                            Objects.equals(ui.getSelectedOptions(), guestItem.getSelectedOptions()) &&
+                            Objects.equals(ui.getItemNote(), guestItem.getItemNote())
+                    ).findFirst();
+
+                    if (matchingUserItem.isPresent()) {
+                        CartItem ui = matchingUserItem.get();
+                        short newQty = (short) (ui.getQuantity() + guestItem.getQuantity());
+                        ui.setQuantity(newQty);
+                        ui.setTotalPrice(ui.getTotalPrice().add(guestItem.getTotalPrice()));
+                        cartItemRepository.save(ui);
+                        cartItemRepository.delete(guestItem);
+                    } else {
+                        guestItem.setCart(userCart);
+                        cartItemRepository.save(guestItem);
+                    }
+                }
+
+                cartRepository.delete(guestCart);
+                recalculateSubtotal(userCart);
+            } else {
+                guestCart.setUserId(userId);
+                guestCart.setGuestSessionId(null);
+                cartRepository.save(guestCart);
+            }
+        }
+
+        return ApiResponse.builder().status(200).message("Carts merged successfully").build();
     }
 
     @Override
