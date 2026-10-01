@@ -75,16 +75,27 @@ public class OrderEventListener {
 
         // === Lấy toạ độ GIAO HÀNG (địa chỉ khách) ===
         String deliveryAddress = event.getDeliveryAddress() != null ? event.getDeliveryAddress() : "Địa chỉ mặc định";
-        double deliveryLat = event.getDeliveryLat() != null ? event.getDeliveryLat() : 10.8430;
-        double deliveryLng = event.getDeliveryLng() != null ? event.getDeliveryLng() : 106.8450;
+        Double rawLat = event.getDeliveryLat();
+        Double rawLng = event.getDeliveryLng();
 
-        // Nếu event không chứa toạ độ thật (bị rơi về default) thì mới geocode
-        if ((event.getDeliveryLat() == null || event.getDeliveryLat() == 0) && event.getDeliveryAddress() != null && !event.getDeliveryAddress().isBlank()) {
-            double[] coords = geocodeAddress(event.getDeliveryAddress());
+        double deliveryLat;
+        double deliveryLng;
+
+        if (rawLat != null && rawLng != null && rawLat != 0.0 && rawLng != 0.0) {
+            deliveryLat = rawLat;
+            deliveryLng = rawLng;
+        } else {
+            // Geocode địa chỉ giao hàng
+            double[] coords = geocodeAddress(deliveryAddress);
             if (coords != null) {
                 deliveryLat = coords[0];
                 deliveryLng = coords[1];
-                log.info("Geocoded delivery address '{}' -> {}, {}", event.getDeliveryAddress(), deliveryLat, deliveryLng);
+                log.info("Geocoded delivery address '{}' -> {}, {}", deliveryAddress, deliveryLat, deliveryLng);
+            } else {
+                // Fallback nếu không geocode được: để gần shop
+                deliveryLat = 10.8095;
+                deliveryLng = 106.6262;
+                log.warn("Could not geocode '{}', using default Tân Phú coordinates", deliveryAddress);
             }
         }
 
@@ -143,31 +154,66 @@ public class OrderEventListener {
     }
 
     /**
-     * Geocode địa chỉ sang toạ độ lat/lng dùng Vietmap Geocoding API.
+     * Geocode địa chỉ sang toạ độ lat/lng dùng VietMap API v3 (Autocomplete + Place Details)
+     * và OpenStreetMap Nominatim làm fallback.
      * @return double[]{lat, lng} hoặc null nếu thất bại
      */
     private double[] geocodeAddress(String address) {
+        if (address == null || address.isBlank()) return null;
+        
+        // 1. Thử VietMap Autocomplete v3 + Place Details
         try {
-            String encoded = URLEncoder.encode(address, StandardCharsets.UTF_8);
-            String url = "https://maps.vietmap.vn/api/geocoding/v2/search?apikey=" + VIETMAP_API_KEY + "&text=" + encoded;
+            String encoded = URLEncoder.encode(address.trim(), StandardCharsets.UTF_8);
+            String searchUrl = "https://maps.vietmap.vn/api/autocomplete/v3?apikey=" + VIETMAP_API_KEY + "&text=" + encoded;
             RestTemplate restTemplate = new RestTemplate();
-            String json = restTemplate.getForObject(url, String.class);
-            if (json == null) return null;
-            JsonNode root = objectMapper.readTree(json);
-            JsonNode features = root.get("features");
-            if (features != null && features.isArray() && features.size() > 0) {
-                JsonNode geometry = features.get(0).get("geometry");
-                if (geometry != null) {
-                    JsonNode coords = geometry.get("coordinates");
-                    if (coords != null && coords.size() >= 2) {
-                        double lng = coords.get(0).asDouble();
-                        double lat = coords.get(1).asDouble();
-                        return new double[]{lat, lng};
+            String json = restTemplate.getForObject(searchUrl, String.class);
+            if (json != null) {
+                JsonNode root = objectMapper.readTree(json);
+                if (root.isArray() && root.size() > 0) {
+                    JsonNode first = root.get(0);
+                    String refId = first.has("ref_id") ? first.get("ref_id").asText() : null;
+                    if (refId != null && !refId.isBlank()) {
+                        String placeUrl = "https://maps.vietmap.vn/api/place/v3?apikey=" + VIETMAP_API_KEY + "&refid=" + URLEncoder.encode(refId, StandardCharsets.UTF_8);
+                        String placeJson = restTemplate.getForObject(placeUrl, String.class);
+                        if (placeJson != null) {
+                            JsonNode placeNode = objectMapper.readTree(placeJson);
+                            if (placeNode.has("lat") && placeNode.has("lng")) {
+                                double lat = placeNode.get("lat").asDouble();
+                                double lng = placeNode.get("lng").asDouble();
+                                if (lat != 0.0 && lng != 0.0) {
+                                    log.info("VietMap v3 geocoded '{}' -> lat={}, lng={}", address, lat, lng);
+                                    return new double[]{lat, lng};
+                                }
+                            }
+                        }
                     }
                 }
             }
         } catch (Exception e) {
-            log.warn("Geocoding failed for address '{}': {}", address, e.getMessage());
+            log.warn("VietMap geocoding failed for address '{}': {}", address, e.getMessage());
+        }
+
+        // 2. Fallback sang OpenStreetMap Nominatim
+        try {
+            String encoded = URLEncoder.encode(address.trim(), StandardCharsets.UTF_8);
+            String nominatimUrl = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encoded;
+            RestTemplate restTemplate = new RestTemplate();
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set("User-Agent", "DeliveryFoodApp/1.0");
+            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
+            org.springframework.http.ResponseEntity<String> resp = restTemplate.exchange(
+                    nominatimUrl, org.springframework.http.HttpMethod.GET, entity, String.class);
+            if (resp.getBody() != null) {
+                JsonNode root = objectMapper.readTree(resp.getBody());
+                if (root.isArray() && root.size() > 0) {
+                    double lat = root.get(0).get("lat").asDouble();
+                    double lng = root.get(0).get("lon").asDouble();
+                    log.info("Nominatim fallback geocoded '{}' -> lat={}, lng={}", address, lat, lng);
+                    return new double[]{lat, lng};
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Nominatim fallback failed for address '{}': {}", address, e.getMessage());
         }
         return null;
     }
