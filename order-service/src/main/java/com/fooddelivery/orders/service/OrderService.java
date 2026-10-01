@@ -40,6 +40,7 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final RestTemplate restTemplate;
+    private final com.fooddelivery.orders.client.CoreServiceClient coreServiceClient;
     private final com.fooddelivery.orders.kafka.OrderEventProducer orderEventProducer;
     private final CodRemittanceService codRemittanceService;
 
@@ -90,10 +91,9 @@ public class OrderService {
         deductPayload.put("items", deductItems);
 
         try {
-            String coreServiceUrl = System.getenv().getOrDefault("CORE_SERVICE_URL", "http://localhost:8082");
-            restTemplate.postForEntity(coreServiceUrl + "/core/items/deduct-stock", deductPayload, Void.class);
-        } catch (org.springframework.web.client.HttpStatusCodeException ex) {
-            log.error("Failed to deduct inventory: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            coreServiceClient.deductStock(deductPayload);
+        } catch (feign.FeignException ex) {
+            log.error("Failed to deduct inventory via CoreServiceClient: status={}, content={}", ex.status(), ex.contentUTF8());
             throw new RuntimeException("Món ăn trong giỏ đã hết hàng hoặc không đủ số lượng tồn kho để đặt!");
         } catch (Exception ex) {
             log.warn("Core service inventory check warning: {}", ex.getMessage());
@@ -182,6 +182,25 @@ public class OrderService {
 
         // Publish event to Kafka for Notification Service
         orderEventProducer.publishOrderCreated(savedOrder, orderItems);
+
+        // Redeem promotion in Core Service if order used a voucher
+        if (savedOrder.getPromotionId() != null || (savedOrder.getPromotionCode() != null && !savedOrder.getPromotionCode().isBlank())) {
+            try {
+                Map<String, Object> promoPayload = new HashMap<>();
+                promoPayload.put("promotionId", savedOrder.getPromotionId());
+                promoPayload.put("promoCode", savedOrder.getPromotionCode());
+                promoPayload.put("orderId", savedOrder.getId());
+                promoPayload.put("userId", orderUserId);
+                promoPayload.put("guestSessionId", orderGuestSessionId);
+                promoPayload.put("orderAmount", savedOrder.getSubtotal());
+                promoPayload.put("discountAmount", savedOrder.getDiscountAmount());
+                promoPayload.put("idempotencyKey", savedOrder.getIdempotencyKey());
+                coreServiceClient.redeemPromotion(promoPayload);
+                log.info("Redeemed promotion {} for order ID: {}", savedOrder.getPromotionCode(), savedOrder.getId());
+            } catch (Exception ex) {
+                log.warn("Could not redeem promotion via coreServiceClient: {}", ex.getMessage());
+            }
+        }
 
         return mapToResponse(savedOrder, orderItems);
     }
@@ -369,6 +388,8 @@ public class OrderService {
                 .deliveryFee(order.getDeliveryFee())
                 .discountAmount(order.getDiscountAmount())
                 .totalAmount(order.getTotalAmount())
+                .promotionCode(order.getPromotionCode())
+                .promotionId(order.getPromotionId())
                 .paymentMethod(order.getPaymentMethod().name())
                 .paymentStatus(order.getPaymentStatus().name())
                 .orderStatus(order.getOrderStatus().name())

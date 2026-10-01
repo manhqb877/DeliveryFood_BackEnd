@@ -59,6 +59,11 @@ logging:
     web: INFO
     org.flywaydb: INFO
 
+application:
+  services:
+    core-service:
+      url: ${CORE_SERVICE_URL:http://localhost:8082}
+
 springdoc:
   api-docs:
     path: /v3/api-docs
