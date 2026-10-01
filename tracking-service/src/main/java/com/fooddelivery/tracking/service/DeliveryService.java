@@ -192,6 +192,35 @@ public class DeliveryService {
 
     // ──────────── Private helpers ──────────────
 
+        /**
+     * Reset đơn giao hàng về trạng thái ASSIGNED để test demo lại từ đầu.
+     */
+    @Transactional
+    public DeliveryResponse resetDelivery(Long deliveryId, Long shipperId) {
+        Delivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + deliveryId));
+        delivery.setStatus(DeliveryStatus.ASSIGNED);
+        delivery.setGoingPickupAt(null);
+        delivery.setPickedUpAt(null);
+        delivery.setDeliveredAt(null);
+        delivery.setProofPhotoUrl(null);
+        Delivery saved = deliveryRepository.save(delivery);
+        log.info("[DeliveryService] Reset delivery {} to ASSIGNED for demo testing", deliveryId);
+
+        // Gọi sang order-service để reset trạng thái đơn sang ASSIGNED hoặc READY_FOR_PICKUP
+        try {
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            java.util.Map<String, String> body = new java.util.HashMap<>();
+            body.put("status", "READY_FOR_PICKUP");
+            body.put("actorType", "SHOP");
+            restTemplate.put("http://order-service:8083/orders/" + delivery.getOrderId() + "/status", body);
+        } catch (Exception e) {
+            log.error("Lỗi khi reset status order: {}", e.getMessage());
+        }
+
+        return toResponse(saved);
+    }
+
     private Delivery getAndValidate(Long deliveryId, Long shipperId) {
         Delivery delivery = deliveryRepository.findById(deliveryId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + deliveryId));
