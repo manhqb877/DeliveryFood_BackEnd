@@ -25,6 +25,12 @@ public interface PromotionService {
 
     PromotionRedemptionResponse redeemPromotion(Long promotionId, Long orderId, Long userId, Long guestSessionId, BigDecimal orderAmount);
 
+    PromotionRedemptionResponse redeemPromotion(com.fooddelivery.core.dto.request.RedeemPromotionRequest request);
+
+    PromotionRedemptionResponse claimPromotion(Long promotionId, Long userId);
+
+    List<String> getUserClaimedPromotionCodes(Long userId, Long shopId);
+
     List<PromotionRedemptionResponse> getPromotionRedemptions(Long promotionId);
 
     List<PromotionResponse> getAllPromotionsForAdmin(com.fooddelivery.core.enums.PromoScope scope, String approvalStatus);

@@ -87,6 +87,36 @@ public class PromotionController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/{id}/claim")
+    public ResponseEntity<PromotionRedemptionResponse> claimPromotion(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "userId", required = false) Long paramUserId
+    ) {
+        Long userId = headerUserId != null ? headerUserId : paramUserId;
+        PromotionRedemptionResponse response = promotionService.claimPromotion(id, userId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/user/claimed")
+    public ResponseEntity<List<String>> getUserClaimedPromotions(
+            @RequestHeader(value = "X-User-Id", required = false) Long headerUserId,
+            @RequestParam(value = "userId", required = false) Long paramUserId,
+            @RequestParam(value = "shopId", required = false) Long shopId
+    ) {
+        Long userId = headerUserId != null ? headerUserId : paramUserId;
+        List<String> codes = promotionService.getUserClaimedPromotionCodes(userId, shopId);
+        return ResponseEntity.ok(codes);
+    }
+
+    @PostMapping("/redeem")
+    public ResponseEntity<PromotionRedemptionResponse> redeemPromotion(
+            @RequestBody com.fooddelivery.core.dto.request.RedeemPromotionRequest request
+    ) {
+        PromotionRedemptionResponse response = promotionService.redeemPromotion(request);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{id}/redemptions")
     public ResponseEntity<List<PromotionRedemptionResponse>> getPromotionRedemptions(@PathVariable Long id) {
         List<PromotionRedemptionResponse> responses = promotionService.getPromotionRedemptions(id);

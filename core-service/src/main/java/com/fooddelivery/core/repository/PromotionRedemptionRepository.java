@@ -16,4 +16,14 @@ public interface PromotionRedemptionRepository extends JpaRepository<PromotionRe
     long countByPromotionIdAndGuestSessionId(Long promotionId, Long guestSessionId);
 
     List<PromotionRedemption> findByPromotionIdOrderByCreatedAtDesc(Long promotionId);
+
+    boolean existsByPromotionIdAndUserIdAndStatusIn(Long promotionId, Long userId, java.util.Collection<com.fooddelivery.core.enums.RedemptionStatus> statuses);
+
+    java.util.Optional<PromotionRedemption> findFirstByPromotionIdAndUserIdAndStatus(Long promotionId, Long userId, com.fooddelivery.core.enums.RedemptionStatus status);
+
+    long countByPromotionIdAndStatusIn(Long promotionId, java.util.Collection<com.fooddelivery.core.enums.RedemptionStatus> statuses);
+
+    List<PromotionRedemption> findByUserIdAndStatus(Long userId, com.fooddelivery.core.enums.RedemptionStatus status);
+
+    List<PromotionRedemption> findByUserIdAndStatusIn(Long userId, java.util.Collection<com.fooddelivery.core.enums.RedemptionStatus> statuses);
 }

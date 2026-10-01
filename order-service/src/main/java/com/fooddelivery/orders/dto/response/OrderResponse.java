@@ -23,6 +23,9 @@ public class OrderResponse {
     private BigDecimal discountAmount;
     private BigDecimal totalAmount;
     
+    private String promotionCode;
+    private Long promotionId;
+    
     private String paymentMethod;
     private String paymentStatus;
     private String orderStatus;
