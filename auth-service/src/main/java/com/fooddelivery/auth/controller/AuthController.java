@@ -64,7 +64,7 @@ public class AuthController {
                 .body(ApiResponse.success("Registration successful", response));
     }
 
-    @PostMapping("/register-shipper")
+    @PostMapping({"/register-shipper", "/register/shipper"})
     public ResponseEntity<ApiResponse<RegisterResponse>> registerShipper(
             @Valid @RequestBody com.fooddelivery.auth.dto.request.RegisterShipperRequest request
     ) {

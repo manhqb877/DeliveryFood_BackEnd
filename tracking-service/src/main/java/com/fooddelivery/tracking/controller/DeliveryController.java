@@ -113,4 +113,14 @@ public class DeliveryController {
         if (req == null) req = new CompleteDeliveryRequest();
         return ResponseEntity.ok(deliveryService.completeDelivery(deliveryId, shipperId, req));
     }
+
+    /**
+     * Reset đơn giao hàng về trạng thái ban đầu (ASSIGNED) để phục vụ test/demo lại.
+     */
+    @PostMapping("/deliveries/{deliveryId}/reset")
+    public ResponseEntity<DeliveryResponse> resetDelivery(
+            @PathVariable Long deliveryId,
+            @RequestParam(required = false) Long shipperId) {
+        return ResponseEntity.ok(deliveryService.resetDelivery(deliveryId, shipperId));
+    }
 }

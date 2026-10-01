@@ -59,12 +59,16 @@ public class ShipperProfileController {
         return ResponseEntity.ok(ApiResponse.success("Incremented delivery count successfully", null));
     }
 
-    @org.springframework.web.bind.annotation.PutMapping("/{shipperId}/approve")
+    @org.springframework.web.bind.annotation.RequestMapping(
+            value = "/{shipperId}/approve",
+            method = {org.springframework.web.bind.annotation.RequestMethod.PUT, org.springframework.web.bind.annotation.RequestMethod.POST}
+    )
     public ResponseEntity<ApiResponse<Void>> approveShipper(
             @org.springframework.web.bind.annotation.PathVariable Long shipperId,
             @org.springframework.web.bind.annotation.RequestParam boolean approved,
             @org.springframework.web.bind.annotation.RequestParam(required = false) String reason) {
         ShipperProfile shipper = shipperProfileRepository.findById(shipperId)
+                .or(() -> shipperProfileRepository.findByUserId(shipperId))
                 .orElseThrow(() -> new RuntimeException("Shipper not found"));
         
         shipper.setApprovalStatus(approved ? com.fooddelivery.auth.enums.ApprovalStatus.APPROVED : com.fooddelivery.auth.enums.ApprovalStatus.REJECTED);
