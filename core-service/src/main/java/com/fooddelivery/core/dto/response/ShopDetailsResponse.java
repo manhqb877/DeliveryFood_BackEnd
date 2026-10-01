@@ -15,6 +15,8 @@ import java.util.List;
 public class ShopDetailsResponse {
     private Long id;
     private String shopName;
+    private String logoUrl;
+    private String coverImageUrl;
     private String locationDetail;
     private Double shopLat;
     private Double shopLng;

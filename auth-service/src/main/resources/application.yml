@@ -68,8 +68,8 @@ vietmap:
 jwt:
   # Base64-encoded secret — generate with: openssl rand -base64 32
   secret: ${JWT_SECRET}
-  access-token-expiration: 3600000    # 1 hour in ms
-  refresh-token-expiration: 604800000 # 7 days in ms
+  access-token-expiration: 604800000    # 7 days in ms (tối ưu khi test dev)
+  refresh-token-expiration: 2592000000 # 30 days in ms
 
 openapi:
   service:
