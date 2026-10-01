@@ -117,6 +117,8 @@ public class ShopService {
         return ShopDetailsResponse.builder()
                 .id(shop.getId())
                 .shopName(shop.getShopName())
+                .logoUrl(shop.getLogoUrl())
+                .coverImageUrl(shop.getCoverImageUrl())
                 .locationDetail(shop.getLocationDetail())
                 .shopLat(shop.getShopLat())
                 .shopLng(shop.getShopLng())

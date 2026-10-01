@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
  * Được AppShipper gọi định kỳ mỗi 5-10 giây.
  */
 @Slf4j
-@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/tracking/shippers")
 @RequiredArgsConstructor

@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
 
 @Service
@@ -55,13 +57,16 @@ public class OrderService {
         }
 
         Cart cart = cartRepository.findById(request.getCartId())
-                .orElseThrow(() -> new RuntimeException("Cart not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cart not found"));
 
         if (userId != null && !userId.equals(cart.getUserId())) {
-            throw new RuntimeException("Unauthorized");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized: User does not own this cart");
+        }
+        if (userId == null && cart.getUserId() != null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized: Session expired, please log in again");
         }
         if (userId == null && guestSessionId != null && !guestSessionId.equals(cart.getGuestSessionId())) {
-            throw new RuntimeException("Unauthorized");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized: Guest session mismatch");
         }
 
         // Always use the cart's owner to prevent orphaned orders if API Gateway misses headers
@@ -205,8 +210,16 @@ public class OrderService {
             throw new IllegalArgumentException("Must provide either userId or guestSessionId");
         }
 
+        if (orders.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<Long> orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());
+        List<OrderItem> allItems = orderItemRepository.findByOrderIdIn(orderIds);
+        Map<Long, List<OrderItem>> itemsByOrderId = allItems.stream()
+                .collect(Collectors.groupingBy(item -> item.getOrder().getId()));
+
         return orders.stream().map(order -> {
-            List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+            List<OrderItem> items = itemsByOrderId.getOrDefault(order.getId(), java.util.Collections.emptyList());
             return mapToResponse(order, items);
         }).collect(Collectors.toList());
     }
@@ -229,16 +242,32 @@ public class OrderService {
 
     public List<OrderResponse> getShopOrders(Long shopId) {
         List<Order> orders = orderRepository.findByShopIdOrderByPlacedAtDesc(shopId);
+        if (orders.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<Long> orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());
+        List<OrderItem> allItems = orderItemRepository.findByOrderIdIn(orderIds);
+        Map<Long, List<OrderItem>> itemsByOrderId = allItems.stream()
+                .collect(Collectors.groupingBy(item -> item.getOrder().getId()));
+
         return orders.stream().map(order -> {
-            List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+            List<OrderItem> items = itemsByOrderId.getOrDefault(order.getId(), java.util.Collections.emptyList());
             return mapToResponse(order, items);
         }).collect(Collectors.toList());
     }
 
     public List<OrderResponse> getAllOrders() {
         List<Order> orders = orderRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "placedAt"));
+        if (orders.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        List<Long> orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());
+        List<OrderItem> allItems = orderItemRepository.findByOrderIdIn(orderIds);
+        Map<Long, List<OrderItem>> itemsByOrderId = allItems.stream()
+                .collect(Collectors.groupingBy(item -> item.getOrder().getId()));
+
         return orders.stream().map(order -> {
-            List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+            List<OrderItem> items = itemsByOrderId.getOrDefault(order.getId(), java.util.Collections.emptyList());
             return mapToResponse(order, items);
         }).collect(Collectors.toList());
     }
