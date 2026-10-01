@@ -285,6 +285,148 @@ public class PromotionServiceImpl implements PromotionService {
 
     @Override
     @Transactional
+    public PromotionRedemptionResponse claimPromotion(Long promotionId, Long userId) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập để nhận mã ưu đãi!");
+        }
+
+        Promotion promo = promotionRepository.findById(promotionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mã khuyến mãi với id: " + promotionId));
+
+        if (Boolean.FALSE.equals(promo.getIsActive())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã khuyến mãi hiện đang tạm dừng.");
+        }
+
+        if (!"APPROVED".equalsIgnoreCase(promo.getApprovalStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã khuyến mãi chưa được kích hoạt.");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        if (promo.getValidFrom() != null && now.isBefore(promo.getValidFrom())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã khuyến mãi chưa đến thời gian áp dụng.");
+        }
+        if (promo.getValidUntil() != null && now.isAfter(promo.getValidUntil())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã khuyến mãi đã hết hạn sử dụng.");
+        }
+
+        // Kiểm tra xem khách đã lưu hoặc đã dùng mã này chưa
+        boolean alreadyClaimed = redemptionRepository.existsByPromotionIdAndUserIdAndStatusIn(
+                promotionId, userId, List.of(RedemptionStatus.CLAIMED, RedemptionStatus.USED)
+        );
+        if (alreadyClaimed) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn đã nhận mã ưu đãi này rồi!");
+        }
+
+        // Kiểm tra quota còn lại của shop
+        long claimedAndUsed = redemptionRepository.countByPromotionIdAndStatusIn(
+                promotionId, List.of(RedemptionStatus.CLAIMED, RedemptionStatus.USED)
+        );
+        int totalLimit = promo.getTotalLimit() != null ? promo.getTotalLimit() : Integer.MAX_VALUE;
+        if (claimedAndUsed >= totalLimit) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã ưu đãi này đã hết lượt nhận!");
+        }
+
+        PromotionRedemption redemption = PromotionRedemption.builder()
+                .promotion(promo)
+                .userId(userId)
+                .orderId(null)
+                .discountApplied(BigDecimal.ZERO)
+                .status(RedemptionStatus.CLAIMED)
+                .build();
+
+        PromotionRedemption saved = redemptionRepository.save(redemption);
+        log.info("User {} successfully claimed promotion {} (Shop ID: {})", userId, promo.getCode(), promo.getShopId());
+
+        return PromotionRedemptionResponse.builder()
+                .id(saved.getId())
+                .promotionId(promo.getId())
+                .promoCode(promo.getCode())
+                .userId(userId)
+                .discountApplied(saved.getDiscountApplied())
+                .status(saved.getStatus().name())
+                .createdAt(saved.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    public List<String> getUserClaimedPromotionCodes(Long userId, Long shopId) {
+        if (userId == null) {
+            return List.of();
+        }
+        return redemptionRepository.findByUserIdAndStatus(userId, RedemptionStatus.CLAIMED)
+                .stream()
+                .filter(r -> r.getPromotion() != null)
+                .filter(r -> shopId == null || r.getPromotion().getShopId() == null || r.getPromotion().getShopId().equals(shopId))
+                .map(r -> r.getPromotion().getCode())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public PromotionRedemptionResponse redeemPromotion(com.fooddelivery.core.dto.request.RedeemPromotionRequest request) {
+        Long promoId = request.getPromotionId();
+        if (promoId == null && request.getPromoCode() != null && !request.getPromoCode().isBlank()) {
+            Promotion found = promotionRepository.findByCode(request.getPromoCode().trim().toUpperCase()).orElse(null);
+            if (found != null) {
+                promoId = found.getId();
+            }
+        }
+        if (promoId == null) {
+            log.warn("Cannot redeem promotion: promotionId and promoCode are both null/empty");
+            return null;
+        }
+
+        final Long targetPromoId = promoId;
+        Promotion promo = promotionRepository.findById(targetPromoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Promotion not found with id: " + targetPromoId));
+
+        // Increment used count
+        promo.setUsedCount((promo.getUsedCount() != null ? promo.getUsedCount() : 0) + 1);
+        promotionRepository.save(promo);
+
+        // Check if user previously claimed this promotion
+        PromotionRedemption redemption = null;
+        if (request.getUserId() != null) {
+            redemption = redemptionRepository.findFirstByPromotionIdAndUserIdAndStatus(promo.getId(), request.getUserId(), RedemptionStatus.CLAIMED)
+                    .orElse(null);
+        }
+
+        BigDecimal discount = request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO;
+
+        if (redemption != null) {
+            redemption.setOrderId(request.getOrderId());
+            redemption.setDiscountApplied(discount);
+            redemption.setStatus(RedemptionStatus.USED);
+        } else {
+            redemption = PromotionRedemption.builder()
+                    .promotion(promo)
+                    .userId(request.getUserId())
+                    .guestSessionId(request.getGuestSessionId())
+                    .orderId(request.getOrderId())
+                    .discountApplied(discount)
+                    .status(RedemptionStatus.USED)
+                    .idempotencyKey(request.getIdempotencyKey())
+                    .build();
+        }
+
+        PromotionRedemption saved = redemptionRepository.save(redemption);
+        log.info("Redeemed promotion {} for order ID {}, discount: {}", promo.getCode(), request.getOrderId(), discount);
+
+        return PromotionRedemptionResponse.builder()
+                .id(saved.getId())
+                .promotionId(promo.getId())
+                .promoCode(promo.getCode())
+                .userId(request.getUserId())
+                .guestSessionId(request.getGuestSessionId())
+                .orderId(request.getOrderId())
+                .discountApplied(saved.getDiscountApplied())
+                .status(saved.getStatus().name())
+                .createdAt(saved.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
     public PromotionRedemptionResponse redeemPromotion(Long promotionId, Long orderId, Long userId, Long guestSessionId, BigDecimal orderAmount) {
         Promotion promo = promotionRepository.findById(promotionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Promotion not found with id: " + promotionId));
@@ -302,33 +444,15 @@ public class PromotionServiceImpl implements PromotionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, validation.getMessage());
         }
 
-        // Increment used count
-        promo.setUsedCount((promo.getUsedCount() != null ? promo.getUsedCount() : 0) + 1);
-        promotionRepository.save(promo);
-
-        PromotionRedemption redemption = PromotionRedemption.builder()
-                .promotion(promo)
-                .userId(userId)
-                .guestSessionId(guestSessionId)
-                .orderId(orderId)
-                .discountApplied(validation.getDiscountAmount())
-                .status(RedemptionStatus.USED)
-                .build();
-
-        PromotionRedemption saved = redemptionRepository.save(redemption);
-        log.info("Redeemed promotion {} for order ID {}, discount: {}", promo.getCode(), orderId, validation.getDiscountAmount());
-
-        return PromotionRedemptionResponse.builder()
-                .id(saved.getId())
+        return redeemPromotion(com.fooddelivery.core.dto.request.RedeemPromotionRequest.builder()
                 .promotionId(promo.getId())
                 .promoCode(promo.getCode())
+                .orderId(orderId)
                 .userId(userId)
                 .guestSessionId(guestSessionId)
-                .orderId(orderId)
-                .discountApplied(saved.getDiscountApplied())
-                .status(saved.getStatus().name())
-                .createdAt(saved.getCreatedAt())
-                .build();
+                .orderAmount(orderAmount)
+                .discountAmount(validation.getDiscountAmount())
+                .build());
     }
 
     @Override
