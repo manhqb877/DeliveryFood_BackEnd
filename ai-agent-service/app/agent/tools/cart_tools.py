@@ -166,6 +166,7 @@ async def handle_add_to_cart(tool_input: Dict[str, Any], state: SessionState) ->
     )
     state.cart.items.append(new_item)
     state.order_confirmed = False
+<<<<<<< HEAD
     state.cart_updated = True
     state.rotate_idempotency_key()
 
@@ -190,6 +191,10 @@ async def handle_add_to_cart(tool_input: Dict[str, Any], state: SessionState) ->
         import logging
         logging.getLogger(__name__).warning(f"[CartTools] Failed to sync item to order-service: {e}")
 
+=======
+    state.rotate_idempotency_key()
+
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
     return {
         "success": True,
         "cart_item_id": new_item.cart_item_id,
@@ -222,7 +227,10 @@ async def handle_update_cart_item(tool_input: Dict[str, Any], state: SessionStat
         msg = f"Đã cập nhật {item.item_name or item.item_id}"
 
     state.order_confirmed = False
+<<<<<<< HEAD
     state.cart_updated = True
+=======
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
     state.rotate_idempotency_key()
     return {"success": True, "message": msg}
 
@@ -237,7 +245,10 @@ async def handle_remove_from_cart(tool_input: Dict[str, Any], state: SessionStat
         return {"success": False, "error": "Không tìm thấy món trong giỏ"}
 
     state.order_confirmed = False
+<<<<<<< HEAD
     state.cart_updated = True
+=======
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
     state.rotate_idempotency_key()
     return {"success": True, "message": "Đã xoá khỏi giỏ hàng"}
 

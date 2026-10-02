@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+<<<<<<< HEAD
 import com.fooddelivery.payment.dto.event.PaymentEvent;
 import com.fooddelivery.payment.kafka.PaymentEventProducer;
 
@@ -27,6 +28,11 @@ import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+=======
+import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -43,7 +49,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final TransactionRepository transactionRepository;
     private final RestTemplate restTemplate;
+<<<<<<< HEAD
     private final PaymentEventProducer paymentEventProducer;
+=======
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
 
     @Value("${payment.sepay.bank-name:MBBank}")
     private String bankName;
@@ -194,6 +203,7 @@ public class PaymentServiceImpl implements PaymentService {
             restTemplate.put(payUrl, null);
             log.info("Order {} successfully marked as PAID via SePay", orderId);
         } catch (Exception e) {
+<<<<<<< HEAD
             log.error("Failed to update order {} to PAID in order-service via REST: {}. Event will still be published to Kafka.", orderId, e.getMessage());
         }
 
@@ -212,6 +222,11 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
         paymentEventProducer.publishPaymentCompleted(paymentEvent);
 
+=======
+            log.error("Failed to update order {} to PAID in order-service: {}", orderId, e.getMessage());
+        }
+
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
         return true;
     }
 
@@ -310,6 +325,7 @@ public class PaymentServiceImpl implements PaymentService {
                             restTemplate.put(payUrl, null);
                             log.info("Successfully updated order {} to PAID via SePay Polling", transaction.getOrderId());
                         } catch (Exception e) {
+<<<<<<< HEAD
                             log.error("Failed to notify order-service for order {}: {}. Event will still be published to Kafka.", transaction.getOrderId(), e.getMessage());
                         }
 
@@ -328,6 +344,11 @@ public class PaymentServiceImpl implements PaymentService {
                                 .build();
                         paymentEventProducer.publishPaymentCompleted(paymentEvent);
 
+=======
+                            log.error("Failed to notify order-service for order {}: {}", transaction.getOrderId(), e.getMessage());
+                        }
+
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
                         break;
                     }
                 }

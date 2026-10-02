@@ -61,16 +61,22 @@ class SessionState(BaseModel):
     area_code: str = "UNKNOWN"
     user_type: str = "guest"           # "guest" | "customer"
     user_id: Optional[int] = None
+<<<<<<< HEAD
     guest_session_id: Optional[int] = None
+=======
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
     user_jwt: Optional[str] = None     # forward tới downstream services
     cart: CartSnapshot = Field(default_factory=CartSnapshot)
     conversation_history: List[AgentTurn] = Field(default_factory=list)
     idempotency_key: str = Field(default_factory=lambda: str(uuid.uuid4()))
     order_confirmed: bool = False      # cờ guardrail: người dùng đã xác nhận chưa
     last_order_id: Optional[str] = None
+<<<<<<< HEAD
     last_order_info: Optional[Dict[str, Any]] = None
     last_payment_qr: Optional[Dict[str, Any]] = None
     cart_updated: bool = False
+=======
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
 
     def rotate_idempotency_key(self) -> None:
         """Sinh key mới — gọi khi giỏ hàng thay đổi sau khi đã confirm."""
