@@ -77,7 +77,22 @@ public class LocationService {
      */
     public String getLocationFromRedis(Long shipperId) {
         String redisKey = String.format(REDIS_LOCATION_KEY, shipperId);
-        return redisTemplate.opsForValue().get(redisKey);
+        String location = redisTemplate.opsForValue().get(redisKey);
+        if (location != null && !location.isEmpty()) {
+            return location;
+        }
+        return liveLocationRepository.findByShipperId(shipperId)
+                .map(loc -> String.format(
+                        "{\"shipperId\":%d,\"lat\":%.6f,\"lng\":%.6f,\"deliveryId\":%s,\"timestamp\":\"%s\",\"heading\":%s,\"speed\":%s}",
+                        loc.getShipperId(),
+                        loc.getLat(),
+                        loc.getLng(),
+                        loc.getDeliveryId() != null ? loc.getDeliveryId().toString() : "null",
+                        loc.getServerReceivedAt() != null ? loc.getServerReceivedAt().toString() : Instant.now().toString(),
+                        loc.getHeadingDeg() != null ? loc.getHeadingDeg().toString() : "null",
+                        loc.getSpeedMs() != null ? loc.getSpeedMs().toString() : "null"
+                ))
+                .orElse(null);
     }
 
     // ──────────── Private helpers ──────────────
