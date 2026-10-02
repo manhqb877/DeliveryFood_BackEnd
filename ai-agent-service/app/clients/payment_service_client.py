@@ -31,35 +31,106 @@ class PaymentServiceClient:
         self.base_url = base_url.rstrip("/")
         self.jwt = jwt
 
+    async def generate_sepay_qr(
+        self,
+        order_id: int,
+        order_code: str,
+        amount: float,
+        user_id: Optional[int] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Gọi payment-service POST /payments/sepay/qr để tạo mã VietQR chuẩn SePay.
+        """
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            try:
+                payload = {
+                    "orderId": order_id,
+                    "orderCode": order_code,
+                    "amount": amount,
+                }
+                if user_id:
+                    payload["userId"] = user_id
+
+                resp = await client.post(
+                    f"{self.base_url}/payments/sepay/qr",
+                    json=payload,
+                    headers=_headers(self.jwt),
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                logger.warning(f"[PaymentClient] POST /payments/sepay/qr returned {resp.status_code}: {resp.text}")
+            except Exception as e:
+                logger.error(f"[PaymentClient] generate_sepay_qr error: {e}")
+
+        # Fallback tạo trực tiếp link SePay chuẩn nếu payment-service tạm thời bận
+        import urllib.parse
+        encoded_desc = urllib.parse.quote(order_code)
+        fallback_qr = f"https://qr.sepay.vn/img?acc=025452790502&bank=MBBank&amount={int(amount)}&des={encoded_desc}"
+        return {
+            "orderId": order_id,
+            "orderCode": order_code,
+            "amount": amount,
+            "bankName": "MBBank",
+            "accountNumber": "025452790502",
+            "accountHolder": "NGUYEN THAI AN",
+            "paymentDescription": order_code,
+            "qrUrl": fallback_qr,
+            "paymentStatus": "PENDING",
+        }
+
     async def initiate_payment(
         self,
         order_id: str,
         method: str,
         idempotency_key: str,
+        order_code: Optional[str] = None,
+        amount: float = 0.0,
+        user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        POST /payments/initiate { order_id, method }
-        → { payment_url | qr_code }
-
-        Payment Service hiện chưa có endpoint này (spec yêu cầu bổ sung).
-        Trả thông tin hướng dẫn phù hợp với từng phương thức.
-        Khi endpoint thật được thêm → đổi sang httpx call.
+        Khởi tạo thông tin thanh toán:
+        - cod: Thanh toán tiền mặt khi nhận hàng.
+        - sepay / vietqr / qr / chuyen_khoan / online: Tạo mã VietQR SePay.
+        - vnpay / momo / zalopay: Link thanh toán tương ứng.
         """
         method_lower = method.lower()
+
+        if method_lower in ["sepay", "vietqr", "qr", "chuyen_khoan", "online"]:
+            oid = int(order_id) if str(order_id).isdigit() else 0
+            code = order_code or f"ORD{order_id}"
+            qr_data = await self.generate_sepay_qr(
+                order_id=oid,
+                order_code=code,
+                amount=amount,
+                user_id=user_id,
+            )
+            return {
+                "order_id": order_id,
+                "order_code": code,
+                "method": "sepay",
+                "payment_qr": qr_data,
+                "instruction": (
+                    f"⚡ **Mã thanh toán SePay VietQR đã được tạo:**\n"
+                    f"- Ngân hàng: {qr_data.get('bankName', 'MBBank')}\n"
+                    f"- Số tài khoản: `{qr_data.get('accountNumber', '025452790502')}`\n"
+                    f"- Chủ tài khoản: **{qr_data.get('accountHolder', 'NGUYEN THAI AN')}**\n"
+                    f"- Số tiền: **{int(amount):,}đ**\n"
+                    f"- Nội dung: `{qr_data.get('paymentDescription', code)}`\n\n"
+                    f"Quét mã QR hiển thị bên dưới hoặc chuyển khoản đúng nội dung trên."
+                ),
+            }
 
         if method_lower == "cod":
             return {
                 "order_id": order_id,
                 "method": "cod",
                 "instruction": (
-                    "💵 **Thanh toán tiền mặt khi nhận hàng.**\n"
+                    "💵 **Thanh toán tiền mặt khi nhận hàng (COD).**\n"
                     "Vui lòng chuẩn bị đúng số tiền khi shipper giao hàng."
                 ),
                 "payment_url": None,
             }
 
-        # Với online payment — khi Payment Service bổ sung endpoint thật sẽ gọi vào đây
-        # Hiện tại trả placeholder có order_id để user biết đơn đã tạo thành công
         payment_urls = {
             "vnpay": f"https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?orderId={order_id}",
             "momo": f"https://test-payment.momo.vn/gw_payment/transactionProcessor?orderId={order_id}",
@@ -77,5 +148,5 @@ class PaymentServiceClient:
 
         return {
             "order_id": order_id,
-            "error": f"Phương thức '{method}' chưa được hỗ trợ. Chọn: cod, vnpay, momo, zalopay",
+            "error": f"Phương thức '{method}' chưa được hỗ trợ. Chọn: cod, sepay (vietqr), vnpay, momo, zalopay",
         }

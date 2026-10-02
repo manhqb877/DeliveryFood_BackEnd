@@ -195,8 +195,8 @@ def _make_gemini_tools(state: SessionState):
         except Exception as e:
             return f"[LỖI]: {e}"
 
-    async def initiate_payment(order_id: str, payment_method: str) -> str:
-        """Khởi tạo thanh toán online (VNPay, MoMo, ZaloPay)."""
+    async def initiate_payment(order_id: str, payment_method: str = "sepay") -> str:
+        """Khởi tạo thanh toán (sepay VietQR, cod, vnpay, momo). Mặc định ưu tiên sepay (VietQR chuyển khoản)."""
         try:
             inp = {"order_id": order_id, "payment_method": payment_method}
             validate_tool_call("initiate_payment", inp, state)
