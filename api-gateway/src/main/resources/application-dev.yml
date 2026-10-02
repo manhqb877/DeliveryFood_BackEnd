@@ -114,6 +114,12 @@ spring:
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /${segment}
 
+        # 4b. WebSocket Tracking (Tracking Service)
+        - id: tracking-service-websocket
+          uri: ${TRACKING_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/ws/**
+
         # 5. Payment Service (port 8085) - Rate limit chống spam thanh toán (15 req/s, burst 30)
         - id: payment-service
           uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
