@@ -42,6 +42,7 @@ spring:
   # Cấu hình Kafka Producer
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+<<<<<<< HEAD
     consumer:
       group-id: order-service-payment-group
       auto-offset-reset: earliest
@@ -51,6 +52,8 @@ spring:
         spring.json.trusted.packages: "*"
         spring.json.use.type.headers: false
         spring.json.value.default.type: com.fooddelivery.orders.dto.event.PaymentEvent
+=======
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer

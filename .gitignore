@@ -18,3 +18,8 @@ node_modules/
 package-lock.json
 package.json
 .idea
+__pycache__
+__pycache__
+# AI Agent Service
+ai-agent-service/**/__pycache__/
+ai-agent-service/**/*.pyc

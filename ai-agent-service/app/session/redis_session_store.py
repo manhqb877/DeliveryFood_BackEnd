@@ -61,8 +61,11 @@ async def get_or_create_session(
     area_code: str = "UNKNOWN",
     user_type: str = "guest",
     user_jwt: Optional[str] = None,
+<<<<<<< HEAD
     user_id: Optional[int] = None,
     guest_session_id: Optional[int] = None,
+=======
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
 ) -> SessionState:
     """Load session từ Redis; nếu không có thì tạo mới."""
     state = await load_session(session_id)
@@ -72,6 +75,7 @@ async def get_or_create_session(
             area_code=area_code,
             user_type=user_type,
             user_jwt=user_jwt,
+<<<<<<< HEAD
             user_id=user_id,
             guest_session_id=guest_session_id,
         )
@@ -85,4 +89,12 @@ async def get_or_create_session(
             state.user_type = "customer"
         if guest_session_id:
             state.guest_session_id = guest_session_id
+=======
+        )
+        await save_session(state)
+    else:
+        # Cập nhật JWT mỗi lượt (token có thể refresh)
+        if user_jwt:
+            state.user_jwt = user_jwt
+>>>>>>> 7e944e4bf810c4b4325503bb97985f09152ab8c8
     return state
