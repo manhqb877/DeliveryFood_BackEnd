@@ -64,6 +64,12 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- Reactive Redis Rate Limiter for Gateway -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

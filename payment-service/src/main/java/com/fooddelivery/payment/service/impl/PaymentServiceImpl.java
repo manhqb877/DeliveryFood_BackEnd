@@ -20,9 +20,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import com.fooddelivery.payment.dto.event.PaymentEvent;
+import com.fooddelivery.payment.kafka.PaymentEventProducer;
+
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +43,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final TransactionRepository transactionRepository;
     private final RestTemplate restTemplate;
+    private final PaymentEventProducer paymentEventProducer;
 
     @Value("${payment.sepay.bank-name:MBBank}")
     private String bankName;
@@ -189,8 +194,23 @@ public class PaymentServiceImpl implements PaymentService {
             restTemplate.put(payUrl, null);
             log.info("Order {} successfully marked as PAID via SePay", orderId);
         } catch (Exception e) {
-            log.error("Failed to update order {} to PAID in order-service: {}", orderId, e.getMessage());
+            log.error("Failed to update order {} to PAID in order-service via REST: {}. Event will still be published to Kafka.", orderId, e.getMessage());
         }
+
+        // 4. Bắn sự kiện PAYMENT_COMPLETED lên Kafka (chống mất message nếu order-service sập)
+        PaymentEvent paymentEvent = PaymentEvent.builder()
+                .eventId("pay_evt_" + orderId + "_" + System.currentTimeMillis())
+                .eventType("PAYMENT_COMPLETED")
+                .orderId(orderId)
+                .orderCode(orderCode)
+                .userId(transaction.getUserId())
+                .gatewayTransactionId(gatewayTxId)
+                .paymentGateway("SEPAY")
+                .amount(transaction.getAmount())
+                .status("SUCCESS")
+                .timestamp(Instant.now())
+                .build();
+        paymentEventProducer.publishPaymentCompleted(paymentEvent);
 
         return true;
     }
@@ -290,8 +310,23 @@ public class PaymentServiceImpl implements PaymentService {
                             restTemplate.put(payUrl, null);
                             log.info("Successfully updated order {} to PAID via SePay Polling", transaction.getOrderId());
                         } catch (Exception e) {
-                            log.error("Failed to notify order-service for order {}: {}", transaction.getOrderId(), e.getMessage());
+                            log.error("Failed to notify order-service for order {}: {}. Event will still be published to Kafka.", transaction.getOrderId(), e.getMessage());
                         }
+
+                        // Bắn sự kiện PAYMENT_COMPLETED lên Kafka (chống mất message nếu order-service sập)
+                        PaymentEvent paymentEvent = PaymentEvent.builder()
+                                .eventId("pay_evt_" + transaction.getOrderId() + "_" + System.currentTimeMillis())
+                                .eventType("PAYMENT_COMPLETED")
+                                .orderId(transaction.getOrderId())
+                                .orderCode(orderCode)
+                                .userId(transaction.getUserId())
+                                .gatewayTransactionId(gatewayTxId)
+                                .paymentGateway("SEPAY")
+                                .amount(transaction.getAmount())
+                                .status("SUCCESS")
+                                .timestamp(Instant.now())
+                                .build();
+                        paymentEventProducer.publishPaymentCompleted(paymentEvent);
 
                         break;
                     }
