@@ -57,29 +57,66 @@ public class OrderService {
             }
         }
 
-        Cart cart = cartRepository.findById(request.getCartId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cart not found"));
-
-        if (userId != null && !userId.equals(cart.getUserId())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized: User does not own this cart");
-        }
-        if (userId == null && cart.getUserId() != null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized: Session expired, please log in again");
-        }
-        if (userId == null && guestSessionId != null && !guestSessionId.equals(cart.getGuestSessionId())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized: Guest session mismatch");
+        List<Long> cartIds = new java.util.ArrayList<>();
+        if (request.getCartIds() != null && !request.getCartIds().isEmpty()) {
+            cartIds.addAll(request.getCartIds());
+        } else if (request.getCartId() != null) {
+            cartIds.add(request.getCartId());
         }
 
-        // Always use the cart's owner to prevent orphaned orders if API Gateway misses headers
-        Long orderUserId = cart.getUserId();
-        Long orderGuestSessionId = cart.getGuestSessionId();
+        if (cartIds.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart ID is required");
+        }
 
-        List<CartItem> cartItems = cartItemRepository.findAllByCartId(cart.getId());
+        List<Cart> carts = cartRepository.findAllById(cartIds);
+        if (carts.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cart not found");
+        }
+
+        for (Cart c : carts) {
+            if (userId != null && !userId.equals(c.getUserId())) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized: User does not own this cart");
+            }
+            if (userId == null && c.getUserId() != null) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized: Session expired, please log in again");
+            }
+            if (userId == null && guestSessionId != null && !guestSessionId.equals(c.getGuestSessionId())) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized: Guest session mismatch");
+            }
+        }
+
+        Cart primaryCart = carts.get(0);
+        Long orderUserId = primaryCart.getUserId();
+        Long orderGuestSessionId = primaryCart.getGuestSessionId();
+
+        List<CartItem> cartItems = new java.util.ArrayList<>();
+        for (Cart c : carts) {
+            cartItems.addAll(cartItemRepository.findAllByCartId(c.getId()));
+        }
         if (cartItems.isEmpty()) {
             throw new RuntimeException("Cart is empty");
         }
 
-        // 2. Atomic Inventory Check & Deduction against Race Conditions
+        // Kiểm tra tất cả các quán có đang mở cửa không
+        for (Cart c : carts) {
+            try {
+                Map<String, Object> shop = coreServiceClient.getShopDetails(c.getShopId());
+                if (shop != null) {
+                    Boolean isOpen = (Boolean) shop.get("isOpen");
+                    Boolean isAcceptingOrders = (Boolean) shop.get("isAcceptingOrders");
+                    if (Boolean.FALSE.equals(isOpen) || Boolean.FALSE.equals(isAcceptingOrders)) {
+                        String sName = (String) shop.get("shopName");
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quán " + (sName != null ? sName : "") + " hiện đang đóng cửa hoặc tạm ngừng nhận đơn!");
+                    }
+                }
+            } catch (ResponseStatusException rse) {
+                throw rse;
+            } catch (Exception ex) {
+                log.warn("Check shop open status warning: {}", ex.getMessage());
+            }
+        }
+
+        // Atomic Inventory Check & Deduction
         List<Map<String, Object>> deductItems = cartItems.stream().map(ci -> {
             Map<String, Object> itemMap = new HashMap<>();
             itemMap.put("itemId", ci.getItemId());
@@ -108,10 +145,10 @@ public class OrderService {
 
         BigDecimal deliveryFee = new BigDecimal("15000");
 
-        // 3. Discount calculation and promotion verification
+        // Discount calculation
         BigDecimal discount = request.getDiscountAmount() != null && request.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0
                 ? request.getDiscountAmount()
-                : (cart.getDiscountAmount() != null ? cart.getDiscountAmount() : BigDecimal.ZERO);
+                : (primaryCart.getDiscountAmount() != null ? primaryCart.getDiscountAmount() : BigDecimal.ZERO);
 
         if (discount.compareTo(subtotal) > 0) {
             discount = subtotal;
@@ -124,15 +161,61 @@ public class OrderService {
 
         String promoCode = request.getPromotionCode() != null && !request.getPromotionCode().isBlank()
                 ? request.getPromotionCode()
-                : cart.getPromotionCode();
+                : primaryCart.getPromotionCode();
         Long promoId = request.getPromotionId();
+
+        // Xử lý shopName và shop2 nếu đa quán
+        Long shop1Id = primaryCart.getShopId();
+        String shop1Name = "Shop #" + shop1Id;
+        try {
+            Map<String, Object> s1 = coreServiceClient.getShopDetails(shop1Id);
+            if (s1 != null && s1.get("shopName") != null) {
+                shop1Name = (String) s1.get("shopName");
+            }
+        } catch (Exception ex) {
+            log.warn("Could not fetch shop1 details: {}", ex.getMessage());
+        }
+
+        Long shop2Id = null;
+        String shop2Name = null;
+        Double pickup2Lat = null;
+        Double pickup2Lng = null;
+        String pickup2Address = null;
+
+        if (carts.size() > 1) {
+            Cart secondCart = carts.get(1);
+            shop2Id = secondCart.getShopId();
+            shop2Name = "Shop #" + shop2Id;
+            try {
+                Map<String, Object> s2 = coreServiceClient.getShopDetails(shop2Id);
+                if (s2 != null) {
+                    if (s2.get("shopName") != null) {
+                        shop2Name = (String) s2.get("shopName");
+                    }
+                    if (s2.get("latitude") != null) pickup2Lat = Double.valueOf(s2.get("latitude").toString());
+                    else if (s2.get("shopLat") != null) pickup2Lat = Double.valueOf(s2.get("shopLat").toString());
+                    else if (s2.get("lat") != null) pickup2Lat = Double.valueOf(s2.get("lat").toString());
+
+                    if (s2.get("longitude") != null) pickup2Lng = Double.valueOf(s2.get("longitude").toString());
+                    else if (s2.get("shopLng") != null) pickup2Lng = Double.valueOf(s2.get("shopLng").toString());
+                    else if (s2.get("lng") != null) pickup2Lng = Double.valueOf(s2.get("lng").toString());
+
+                    if (s2.get("locationDetail") != null) pickup2Address = (String) s2.get("locationDetail");
+                    else if (s2.get("address") != null) pickup2Address = (String) s2.get("address");
+                }
+            } catch (Exception ex) {
+                log.warn("Could not fetch shop2 details: {}", ex.getMessage());
+            }
+        }
+
+        String finalShopName = shop2Name != null ? (shop1Name + " & " + shop2Name) : shop1Name;
 
         Order order = Order.builder()
                 .orderCode(orderCode)
                 .userId(orderUserId)
                 .guestSessionId(orderGuestSessionId)
-                .shopId(cart.getShopId())
-                .shopName("Shop #" + cart.getShopId())
+                .shopId(shop1Id)
+                .shopName(finalShopName)
                 .areaId(1L)
                 .deliveryAddress(request.getDeliveryAddress())
                 .subtotal(subtotal)
@@ -171,17 +254,18 @@ public class OrderService {
                 .newStatus(OrderStatus.PLACED)
                 .actorType(userId != null ? ActorType.CUSTOMER : ActorType.SYSTEM)
                 .actorId(userId)
-                .note("Khách hàng đặt đơn thành công (COD)")
+                .note("Khách hàng đặt đơn thành công (" + request.getPaymentMethod() + ")")
                 .build();
         statusHistoryRepository.save(history);
 
-        log.info("Order created successfully: id={}, code={}, totalAmount={}", savedOrder.getId(), savedOrder.getOrderCode(), savedOrder.getTotalAmount());
+        log.info("Order created successfully: id={}, code={}, totalAmount={}, shops={}",
+                savedOrder.getId(), savedOrder.getOrderCode(), savedOrder.getTotalAmount(), finalShopName);
 
         cartItemRepository.deleteAll(cartItems);
-        cartRepository.delete(cart);
+        cartRepository.deleteAll(carts);
 
-        // Publish event to Kafka for Notification Service
-        orderEventProducer.publishOrderCreated(savedOrder, orderItems);
+        // Publish event to Kafka for Notification & Tracking Service
+        orderEventProducer.publishOrderCreated(savedOrder, orderItems, shop2Id, shop2Name, pickup2Lat, pickup2Lng, pickup2Address);
 
         // Redeem promotion in Core Service if order used a voucher
         if (savedOrder.getPromotionId() != null || (savedOrder.getPromotionCode() != null && !savedOrder.getPromotionCode().isBlank())) {

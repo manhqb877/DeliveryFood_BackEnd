@@ -20,10 +20,23 @@ public class DeliveryResponse {
     private Long shipperId;
     private Long areaId;
 
-    // Tọa độ lấy hàng (Quán)
+    // Tọa độ lấy hàng (Quán 1)
     private Double pickupLat;
     private Double pickupLng;
     private String pickupAddress;
+    private Long shop1Id;
+    private String shop1Name;
+    private Boolean pickup1Completed;
+
+    // Tọa độ lấy hàng 2 (Quán 2 - Đơn ghép 2 quán)
+    private Boolean isMultiShop;
+    private Double pickup2Lat;
+    private Double pickup2Lng;
+    private String pickup2Address;
+    private Long shop2Id;
+    private String shop2Name;
+    private Boolean pickup2Completed;
+    private String optimalPickupOrder; // "SHOP1_FIRST" | "SHOP2_FIRST"
 
     // Tọa độ giao hàng (Khách)
     private Double deliveryLat;

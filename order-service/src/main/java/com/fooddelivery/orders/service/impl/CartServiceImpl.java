@@ -150,6 +150,9 @@ public class CartServiceImpl implements CartService {
         if (opts != null) {
             for (Map<String, Object> opt : opts) {
                 Object ep = opt.get("extra_price");
+                if (ep == null) {
+                    ep = opt.get("extraPrice");
+                }
                 if (ep != null) {
                     try {
                         optionsExtra = optionsExtra.add(new BigDecimal(ep.toString()));
@@ -162,18 +165,33 @@ public class CartServiceImpl implements CartService {
         short qty = request.getQuantity() != null ? request.getQuantity() : 1;
         BigDecimal totalPrice = unitPrice.add(optionsExtra).multiply(BigDecimal.valueOf(qty));
 
-        CartItem item = CartItem.builder()
-                .cart(cart)
-                .itemId(request.getItemId())
-                .itemName(request.getItemName())
-                .unitPrice(unitPrice)
-                .quantity(qty)
-                .selectedOptions(request.getSelectedOptions())
-                .itemNote(request.getItemNote())
-                .totalPrice(totalPrice)
-                .build();
+        // Check if matching item already exists in this cart
+        List<CartItem> existingItems = cartItemRepository.findAllByCartId(cart.getId());
+        Optional<CartItem> matchingItem = existingItems.stream().filter(ci ->
+                ci.getItemId().equals(request.getItemId()) &&
+                Objects.equals(ci.getSelectedOptions(), request.getSelectedOptions()) &&
+                Objects.equals(ci.getItemNote(), request.getItemNote())
+        ).findFirst();
 
-        cartItemRepository.save(item);
+        if (matchingItem.isPresent()) {
+            CartItem ci = matchingItem.get();
+            short newQty = (short) (ci.getQuantity() + qty);
+            ci.setQuantity(newQty);
+            ci.setTotalPrice(ci.getTotalPrice().add(totalPrice));
+            cartItemRepository.save(ci);
+        } else {
+            CartItem item = CartItem.builder()
+                    .cart(cart)
+                    .itemId(request.getItemId())
+                    .itemName(request.getItemName())
+                    .unitPrice(unitPrice)
+                    .quantity(qty)
+                    .selectedOptions(request.getSelectedOptions())
+                    .itemNote(request.getItemNote())
+                    .totalPrice(totalPrice)
+                    .build();
+            cartItemRepository.save(item);
+        }
 
         // Recalculate cart subtotal
         recalculateSubtotal(cart);

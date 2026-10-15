@@ -204,6 +204,8 @@ public class DeliveryService {
         delivery.setPickedUpAt(null);
         delivery.setDeliveredAt(null);
         delivery.setProofPhotoUrl(null);
+        delivery.setPickup1Completed(false);
+        delivery.setPickup2Completed(false);
         Delivery saved = deliveryRepository.save(delivery);
         log.info("[DeliveryService] Reset delivery {} to ASSIGNED for demo testing", deliveryId);
 
@@ -219,6 +221,132 @@ public class DeliveryService {
         }
 
         return toResponse(saved);
+    }
+
+    /**
+     * Xác nhận đã lấy hàng tại Shop 1 hoặc Shop 2 trong đơn ghép / đa điểm.
+     */
+    @Transactional
+    public DeliveryResponse confirmPickupShop(Long deliveryId, Long shipperId, int shopNumber) {
+        Delivery delivery = getAndValidate(deliveryId, shipperId);
+        if (shopNumber == 1) {
+            delivery.setPickup1Completed(true);
+        } else if (shopNumber == 2) {
+            delivery.setPickup2Completed(true);
+        }
+
+        boolean isMulti = Boolean.TRUE.equals(delivery.getIsMultiShop());
+        boolean p1Done = Boolean.TRUE.equals(delivery.getPickup1Completed());
+        boolean p2Done = Boolean.TRUE.equals(delivery.getPickup2Completed());
+
+        // Nếu đã hoàn tất lấy hàng cả 2 shop (hoặc đơn thường chỉ có 1 shop)
+        if ((!isMulti && p1Done) || (isMulti && p1Done && p2Done)) {
+            delivery.setStatus(DeliveryStatus.PICKED_UP);
+            delivery.setPickedUpAt(OffsetDateTime.now());
+
+            try {
+                org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+                java.util.Map<String, String> body = new java.util.HashMap<>();
+                body.put("status", "DELIVERING");
+                body.put("actorType", "SHIPPER");
+                restTemplate.put("http://order-service:8083/orders/" + delivery.getOrderId() + "/status", body);
+            } catch (Exception e) {
+                log.error("Lỗi khi update status order sang DELIVERING: {}", e.getMessage());
+            }
+        } else {
+            // Vẫn còn shop tiếp theo cần ghé lấy
+            delivery.setStatus(DeliveryStatus.GOING_PICKUP);
+        }
+
+        Delivery saved = deliveryRepository.save(delivery);
+        log.info("[DeliveryService] Shipper {} confirmed pickup at shop {} for delivery {}. Status: {}",
+                shipperId, shopNumber, deliveryId, saved.getStatus());
+        return toResponse(saved);
+    }
+
+    /**
+     * Thuật toán tối ưu hoá lộ trình ngắn nhất (TSP) cho Shipper lấy hàng từ 2 quán trước khi giao cho khách:
+     * Tuyến 1: Shipper -> Shop 1 -> Shop 2 -> Khách
+     * Tuyến 2: Shipper -> Shop 2 -> Shop 1 -> Khách
+     * Lựa chọn tuyến có tổng khoảng cách nhỏ nhất.
+     */
+    @Transactional
+    public DeliveryResponse optimizeMultiShopRoute(Long deliveryId, Double shipperLat, Double shipperLng) {
+        Delivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + deliveryId));
+
+        if (!Boolean.TRUE.equals(delivery.getIsMultiShop()) || delivery.getPickup2Lat() == null) {
+            return toResponse(delivery);
+        }
+
+        double sLat = shipperLat != null ? shipperLat : (delivery.getPickupLat() != null ? delivery.getPickupLat() : 10.7733);
+        double sLng = shipperLng != null ? shipperLng : (delivery.getPickupLng() != null ? delivery.getPickupLng() : 106.6977);
+        double p1Lat = delivery.getPickupLat();
+        double p1Lng = delivery.getPickupLng();
+        double p2Lat = delivery.getPickup2Lat();
+        double p2Lng = delivery.getPickup2Lng();
+        double dLat = delivery.getDeliveryLat();
+        double dLng = delivery.getDeliveryLng();
+
+        // Tuyến 1: S -> P1 -> P2 -> D
+        double dist1 = calculateDistanceKm(sLat, sLng, p1Lat, p1Lng)
+                     + calculateDistanceKm(p1Lat, p1Lng, p2Lat, p2Lng)
+                     + calculateDistanceKm(p2Lat, p2Lng, dLat, dLng);
+
+        // Tuyến 2: S -> P2 -> P1 -> D
+        double dist2 = calculateDistanceKm(sLat, sLng, p2Lat, p2Lng)
+                     + calculateDistanceKm(p2Lat, p2Lng, p1Lat, p1Lng)
+                     + calculateDistanceKm(p1Lat, p1Lng, dLat, dLng);
+
+        String optimalOrder = (dist1 <= dist2) ? "SHOP1_FIRST" : "SHOP2_FIRST";
+        delivery.setOptimalPickupOrder(optimalOrder);
+        delivery.setEstimatedDistanceM((int) Math.round(Math.min(dist1, dist2) * 1000));
+        Delivery saved = deliveryRepository.save(delivery);
+
+        log.info("[DeliveryService] Optimal route calculated for delivery {}: order={}, option1={}km, option2={}km (best={}km)",
+                deliveryId, optimalOrder, String.format("%.2f", dist1), String.format("%.2f", dist2),
+                String.format("%.2f", Math.min(dist1, dist2)));
+
+        return toResponse(saved);
+    }
+
+    /**
+     * Chuyển đổi đơn thường thành đơn ghép 2 shop để test hoặc xử lý đơn liên quán.
+     */
+    @Transactional
+    public DeliveryResponse convertToMultiShop(Long deliveryId, Long shop2Id, String shop2Name,
+                                              Double pickup2Lat, Double pickup2Lng, String pickup2Address) {
+        Delivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + deliveryId));
+
+        delivery.setIsMultiShop(true);
+        delivery.setShop1Id(delivery.getShop1Id() != null ? delivery.getShop1Id() : 39L);
+        delivery.setShop1Name(delivery.getShop1Name() != null ? delivery.getShop1Name() : delivery.getPickupAddress().split(" - ")[0]);
+        delivery.setPickup1Completed(false);
+
+        delivery.setShop2Id(shop2Id != null ? shop2Id : 42L);
+        delivery.setShop2Name(shop2Name != null ? shop2Name : "TAKA CHA - Trà Sữa & Chè Sầu Riêng");
+        delivery.setPickup2Lat(pickup2Lat != null ? pickup2Lat : 10.77173);
+        delivery.setPickup2Lng(pickup2Lng != null ? pickup2Lng : 106.70036);
+        delivery.setPickup2Address(pickup2Address != null ? pickup2Address : "66/1 Huỳnh Thúc Kháng, P.Bến Thành, Q.1, Hồ Chí Minh");
+        delivery.setPickup2Completed(false);
+
+        // Tự động tính toán lộ trình tối ưu ban đầu
+        optimizeMultiShopRoute(delivery.getId(), delivery.getPickupLat(), delivery.getPickupLng());
+
+        Delivery saved = deliveryRepository.findById(deliveryId).orElse(delivery);
+        log.info("[DeliveryService] Converted delivery {} to Multi-Shop (2 shops)", deliveryId);
+        return toResponse(saved);
+    }
+
+    private double calculateDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+        double R = 6371; // Earth radius in km
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                   Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private Delivery getAndValidate(Long deliveryId, Long shipperId) {
@@ -240,6 +368,17 @@ public class DeliveryService {
                 .pickupLat(d.getPickupLat())
                 .pickupLng(d.getPickupLng())
                 .pickupAddress(d.getPickupAddress())
+                .shop1Id(d.getShop1Id())
+                .shop1Name(d.getShop1Name())
+                .pickup1Completed(d.getPickup1Completed())
+                .isMultiShop(d.getIsMultiShop())
+                .pickup2Lat(d.getPickup2Lat())
+                .pickup2Lng(d.getPickup2Lng())
+                .pickup2Address(d.getPickup2Address())
+                .shop2Id(d.getShop2Id())
+                .shop2Name(d.getShop2Name())
+                .pickup2Completed(d.getPickup2Completed())
+                .optimalPickupOrder(d.getOptimalPickupOrder())
                 .deliveryLat(d.getDeliveryLat())
                 .deliveryLng(d.getDeliveryLng())
                 .deliveryAddress(d.getDeliveryAddress())

@@ -20,6 +20,11 @@ public class OrderEvent implements Serializable {
     private Long orderId;
     private String orderCode;
     private Long shopId;
+    private Long shop2Id;
+    private String shop2Name;
+    private Double pickup2Lat;
+    private Double pickup2Lng;
+    private String pickup2Address;
     private Long userId;
     private Long guestSessionId;
     private String customerName;
