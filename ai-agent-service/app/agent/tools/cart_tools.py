@@ -166,7 +166,29 @@ async def handle_add_to_cart(tool_input: Dict[str, Any], state: SessionState) ->
     )
     state.cart.items.append(new_item)
     state.order_confirmed = False
+    state.cart_updated = True
     state.rotate_idempotency_key()
+
+    # Đồng bộ trực tiếp vào order-service cart để web hiển thị ngay trong giỏ hàng
+    try:
+        from app.clients.order_service_client import OrderServiceClient
+        order_client = OrderServiceClient(base_url=settings.order_service_url, jwt=state.user_jwt)
+        shop_id_int = int(state.cart.shop_id) if state.cart.shop_id and str(state.cart.shop_id).isdigit() else 1
+        await order_client.sync_cart_to_order_service(
+            shop_id=shop_id_int,
+            items=[{
+                "item_id": new_item.item_id,
+                "item_name": new_item.item_name,
+                "unit_price": new_item.unit_price,
+                "quantity": new_item.quantity,
+                "note": new_item.note,
+            }],
+            user_id=state.user_id,
+            guest_session_id=state.guest_session_id,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"[CartTools] Failed to sync item to order-service: {e}")
 
     return {
         "success": True,
@@ -200,6 +222,7 @@ async def handle_update_cart_item(tool_input: Dict[str, Any], state: SessionStat
         msg = f"Đã cập nhật {item.item_name or item.item_id}"
 
     state.order_confirmed = False
+    state.cart_updated = True
     state.rotate_idempotency_key()
     return {"success": True, "message": msg}
 
@@ -214,6 +237,7 @@ async def handle_remove_from_cart(tool_input: Dict[str, Any], state: SessionStat
         return {"success": False, "error": "Không tìm thấy món trong giỏ"}
 
     state.order_confirmed = False
+    state.cart_updated = True
     state.rotate_idempotency_key()
     return {"success": True, "message": "Đã xoá khỏi giỏ hàng"}
 

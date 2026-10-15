@@ -18,7 +18,10 @@ FINANCIAL_TOOLS = {"create_order", "initiate_payment"}
 # Từ khoá người dùng dùng để xác nhận (case-insensitive)
 CONFIRM_KEYWORDS = [
     "xác nhận", "xác nhân", "đồng ý", "ok", "được", "đặt đi", "đặt thôi",
-    "yes", "có", "chắc chắn", "confirm", "đặt ngay",
+    "yes", "có", "chắc chắn", "confirm", "đặt ngay", "đặt luôn",
+    "thanh toán", "thanh toan", "thanh toán luôn", "thanh toán nhé", "thanh toán đi",
+    "chốt", "chốt đơn", "đặt hàng", "đặt đơn", "mua", "mua luôn", "mua ngay",
+    "quét qr", "chuyển khoản",
 ]
 
 
