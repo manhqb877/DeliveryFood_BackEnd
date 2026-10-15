@@ -25,6 +25,12 @@ public class OrderEventProducer {
     public static final String TOPIC_ORDER_EVENTS = "order-events";
 
     public void publishOrderCreated(Order order, List<OrderItem> orderItems) {
+        publishOrderCreated(order, orderItems, null, null, null, null, null);
+    }
+
+    public void publishOrderCreated(Order order, List<OrderItem> orderItems,
+                                    Long shop2Id, String shop2Name,
+                                    Double pickup2Lat, Double pickup2Lng, String pickup2Address) {
         try {
             List<OrderEvent.OrderItemSummary> itemSummaries = (orderItems != null)
                     ? orderItems.stream().map(item -> OrderEvent.OrderItemSummary.builder()
@@ -47,6 +53,11 @@ public class OrderEventProducer {
                     .orderId(order.getId())
                     .orderCode(order.getOrderCode())
                     .shopId(order.getShopId())
+                    .shop2Id(shop2Id)
+                    .shop2Name(shop2Name)
+                    .pickup2Lat(pickup2Lat)
+                    .pickup2Lng(pickup2Lng)
+                    .pickup2Address(pickup2Address)
                     .userId(order.getUserId())
                     .guestSessionId(order.getGuestSessionId())
                     .customerName(customerName)

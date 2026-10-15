@@ -7,8 +7,9 @@ import java.util.Map;
 
 @Data
 public class OrderRequest {
-    @NotNull(message = "Cart ID is required")
     private Long cartId;
+
+    private java.util.List<Long> cartIds;
 
     @NotNull(message = "Delivery address is required")
     private Map<String, Object> deliveryAddress;

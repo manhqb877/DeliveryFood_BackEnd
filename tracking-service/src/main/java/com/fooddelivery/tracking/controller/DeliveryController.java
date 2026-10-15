@@ -115,6 +115,42 @@ public class DeliveryController {
     }
 
     /**
+     * Xác nhận đã lấy hàng tại Quán 1 hoặc Quán 2 (Dành cho đơn ghép / đơn 2 shop).
+     */
+    @PostMapping("/deliveries/{deliveryId}/confirm-pickup-shop/{shopNumber}")
+    public ResponseEntity<DeliveryResponse> confirmPickupShop(
+            @PathVariable Long deliveryId,
+            @PathVariable int shopNumber,
+            @RequestParam Long shipperId) {
+        return ResponseEntity.ok(deliveryService.confirmPickupShop(deliveryId, shipperId, shopNumber));
+    }
+
+    /**
+     * Tối ưu hoá quãng đường ngắn nhất (TSP) cho Shipper ghé 2 quán lấy hàng.
+     */
+    @PostMapping("/deliveries/{deliveryId}/optimize-route")
+    public ResponseEntity<DeliveryResponse> optimizeRoute(
+            @PathVariable Long deliveryId,
+            @RequestParam(required = false) Double shipperLat,
+            @RequestParam(required = false) Double shipperLng) {
+        return ResponseEntity.ok(deliveryService.optimizeMultiShopRoute(deliveryId, shipperLat, shipperLng));
+    }
+
+    /**
+     * Chuyển đổi đơn sang đơn ghép 2 shop (phục vụ kiểm thử và mô phỏng lộ trình đa điểm).
+     */
+    @PostMapping("/deliveries/{deliveryId}/convert-to-multi-shop")
+    public ResponseEntity<DeliveryResponse> convertToMultiShop(
+            @PathVariable Long deliveryId,
+            @RequestParam(required = false) Long shop2Id,
+            @RequestParam(required = false) String shop2Name,
+            @RequestParam(required = false) Double pickup2Lat,
+            @RequestParam(required = false) Double pickup2Lng,
+            @RequestParam(required = false) String pickup2Address) {
+        return ResponseEntity.ok(deliveryService.convertToMultiShop(deliveryId, shop2Id, shop2Name, pickup2Lat, pickup2Lng, pickup2Address));
+    }
+
+    /**
      * Reset đơn giao hàng về trạng thái ban đầu (ASSIGNED) để phục vụ test/demo lại.
      */
     @PostMapping("/deliveries/{deliveryId}/reset")

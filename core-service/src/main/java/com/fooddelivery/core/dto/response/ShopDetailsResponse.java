@@ -22,5 +22,7 @@ public class ShopDetailsResponse {
     private Double shopLng;
     private BigDecimal avgRating;
     private Integer totalReviews;
+    private Boolean isOpen;
+    private Boolean isAcceptingOrders;
     private List<CategoryDto> categories;
 }

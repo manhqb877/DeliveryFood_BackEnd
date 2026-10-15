@@ -44,7 +44,7 @@ public class Delivery {
     @JoinColumn(name = "shift_id")
     private ShipperShift shift; // Ca làm việc tương ứng
 
-    // Tọa độ điểm lấy hàng (Gian hàng)
+    // Tọa độ điểm lấy hàng (Gian hàng 1)
     @Column(name = "pickup_lat", nullable = false)
     private Double pickupLat;
 
@@ -53,6 +53,40 @@ public class Delivery {
 
     @Column(name = "pickup_address", nullable = false, columnDefinition = "TEXT")
     private String pickupAddress;
+
+    @Column(name = "shop1_id")
+    private Long shop1Id;
+
+    @Column(name = "shop1_name", length = 255)
+    private String shop1Name;
+
+    @Column(name = "pickup1_completed")
+    private Boolean pickup1Completed = false;
+
+    // Tọa độ điểm lấy hàng 2 (Dành cho đơn ghép / đơn 2 shop)
+    @Column(name = "is_multi_shop")
+    private Boolean isMultiShop = false;
+
+    @Column(name = "pickup2_lat")
+    private Double pickup2Lat;
+
+    @Column(name = "pickup2_lng")
+    private Double pickup2Lng;
+
+    @Column(name = "pickup2_address", columnDefinition = "TEXT")
+    private String pickup2Address;
+
+    @Column(name = "shop2_id")
+    private Long shop2Id;
+
+    @Column(name = "shop2_name", length = 255)
+    private String shop2Name;
+
+    @Column(name = "pickup2_completed")
+    private Boolean pickup2Completed = false;
+
+    @Column(name = "optimal_pickup_order", length = 50)
+    private String optimalPickupOrder; // "SHOP1_FIRST" | "SHOP2_FIRST"
 
     // Tọa độ điểm giao hàng (Khách hàng)
     @Column(name = "delivery_lat", nullable = false)
