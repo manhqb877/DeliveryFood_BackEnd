@@ -41,6 +41,19 @@ services:
       - delivery-net
 
   # =====================================================================
+  # SERVICE REGISTRY: NETFLIX EUREKA SERVER (Port: 8761)
+  # =====================================================================
+  eureka-server:
+    build: ./eureka-server
+    container_name: delivery-eureka-server
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_HOSTNAME=delivery-eureka-server
+    networks:
+      - delivery-net
+
+  # =====================================================================
   # API GATEWAY (Port: 8080)
   # =====================================================================
   api-gateway:
@@ -58,10 +71,12 @@ services:
       - PAYMENT_SERVICE_URL=http://delivery-payment-service:8085
       - NOTIFICATION_SERVICE_URL=http://delivery-notification-service:8086
       - ANALYTICS_SERVICE_URL=http://delivery-analytics-service:8087
-      - AI_AGENT_SERVICE_URL=http://delivery-ai-agent-service:8088
+      - AI_AGENT_SERVICE_URL=${AI_AGENT_SERVICE_URL:-http://delivery-ai-agent-service:8088}
+      - EUREKA_SERVER_URL=http://delivery-eureka-server:8761/eureka/
       - SPRING_DATA_REDIS_HOST=delivery-redis
       - SPRING_DATA_REDIS_PORT=6379
     depends_on:
+      - eureka-server
       - auth-service
       - core-service
       - order-service
@@ -69,7 +84,6 @@ services:
       - payment-service
       - notification-service
       - analytics-service
-      - ai-agent-service
       - delivery-redis
     networks:
       - delivery-net
@@ -92,7 +106,12 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx256m -XX:+UseSerialGC -Deureka.client.serviceUrl.defaultZone=http://delivery-eureka-server:8761/eureka/ -Deureka.instance.preferIpAddress=true
     depends_on:
+      - eureka-server
       - delivery-redis
       - delivery-kafka
     networks:
@@ -112,7 +131,12 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx256m -XX:+UseSerialGC -Deureka.client.serviceUrl.defaultZone=http://delivery-eureka-server:8761/eureka/ -Deureka.instance.preferIpAddress=true
     depends_on:
+      - eureka-server
       - delivery-redis
       - delivery-kafka
     networks:
@@ -136,7 +160,12 @@ services:
       - CORE_SERVICE_URL=http://core-service:8082
       - TRACKING_SERVICE_URL=http://tracking-service:8084
       - PAYMENT_SERVICE_URL=http://payment-service:8085
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx256m -XX:+UseSerialGC -Deureka.client.serviceUrl.defaultZone=http://delivery-eureka-server:8761/eureka/ -Deureka.instance.preferIpAddress=true
     depends_on:
+      - eureka-server
       - delivery-redis
       - delivery-kafka
     networks:
@@ -156,7 +185,12 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx256m -XX:+UseSerialGC -Deureka.client.serviceUrl.defaultZone=http://delivery-eureka-server:8761/eureka/ -Deureka.instance.preferIpAddress=true
     depends_on:
+      - eureka-server
       - delivery-redis
       - delivery-kafka
     networks:
@@ -181,7 +215,12 @@ services:
       - SEPAY_BANK_NAME=${SEPAY_BANK_NAME:-MBBank}
       - SEPAY_ACCOUNT_NUMBER=${SEPAY_ACCOUNT_NUMBER:-025452790502}
       - SEPAY_ACCOUNT_HOLDER=${SEPAY_ACCOUNT_HOLDER:-NGUYEN THAI AN}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx256m -XX:+UseSerialGC -Deureka.client.serviceUrl.defaultZone=http://delivery-eureka-server:8761/eureka/ -Deureka.instance.preferIpAddress=true
     depends_on:
+      - eureka-server
       - delivery-redis
       - delivery-kafka
       - order-service
@@ -202,7 +241,12 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx256m -XX:+UseSerialGC -Deureka.client.serviceUrl.defaultZone=http://delivery-eureka-server:8761/eureka/ -Deureka.instance.preferIpAddress=true
     depends_on:
+      - eureka-server
       - delivery-redis
       - delivery-kafka
     networks:
@@ -222,7 +266,12 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       - KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=delivery-kafka:9092
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://delivery-eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx256m -XX:+UseSerialGC -Deureka.client.serviceUrl.defaultZone=http://delivery-eureka-server:8761/eureka/ -Deureka.instance.preferIpAddress=true
     depends_on:
+      - eureka-server
       - delivery-redis
       - delivery-kafka
     networks:
