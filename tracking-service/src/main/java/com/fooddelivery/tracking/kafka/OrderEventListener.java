@@ -38,11 +38,14 @@ public class OrderEventListener {
             OrderEvent event = objectMapper.readValue(message, OrderEvent.class);
             log.info("Received OrderEvent from Kafka: {}", event.getEventType());
 
-            if ("ORDER_STATUS_CHANGED".equals(event.getEventType())) {
+            if ("ORDER_CREATED".equals(event.getEventType())) {
+                log.info("Processing ORDER_CREATED for order {}", event.getOrderId());
+                createDeliveryIfNotExists(event);
+            } else if ("ORDER_STATUS_CHANGED".equals(event.getEventType())) {
                 String status = event.getOrderStatus();
                 log.info("Order {} status changed to {}", event.getOrderId(), status);
 
-                if ("CONFIRMED".equals(status) || "READY_FOR_PICKUP".equals(status) || "PREPARING".equals(status)) {
+                if ("PLACED".equals(status) || "CONFIRMED".equals(status) || "READY_FOR_PICKUP".equals(status) || "PREPARING".equals(status)) {
                     createDeliveryIfNotExists(event);
                 }
             }
@@ -147,6 +150,22 @@ public class OrderEventListener {
                 .codAmount(event.getTotalAmount() != null ? event.getTotalAmount() : BigDecimal.ZERO)
                 .confirmMethod(ConfirmMethod.OTP)
                 .build();
+
+        if (event.getShop2Id() != null) {
+            delivery.setIsMultiShop(true);
+            delivery.setShop1Id(event.getShopId());
+            delivery.setShop1Name(pickupAddress != null ? pickupAddress.split(" - ")[0] : "Quán 1");
+            delivery.setPickup1Completed(false);
+
+            delivery.setShop2Id(event.getShop2Id());
+            delivery.setShop2Name(event.getShop2Name() != null ? event.getShop2Name() : "Quán 2");
+            delivery.setPickup2Lat(event.getPickup2Lat() != null ? event.getPickup2Lat() : 10.77173);
+            delivery.setPickup2Lng(event.getPickup2Lng() != null ? event.getPickup2Lng() : 106.70036);
+            delivery.setPickup2Address(event.getPickup2Address() != null ? event.getPickup2Address() : "Địa chỉ Quán 2");
+            delivery.setPickup2Completed(false);
+            log.info("Configured Multi-Shop Delivery for Order {}: Shop1={}, Shop2={}",
+                    event.getOrderId(), delivery.getShop1Name(), delivery.getShop2Name());
+        }
 
         deliveryRepository.save(delivery);
         log.info("Created new PENDING delivery for Order {} -> delivery [{},{}] pickup [{},{}]",

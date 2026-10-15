@@ -12,6 +12,9 @@ import java.util.Map;
 )
 public interface CoreServiceClient {
 
+    @org.springframework.web.bind.annotation.GetMapping("/core/shops/{shopId}/details")
+    Map<String, Object> getShopDetails(@org.springframework.web.bind.annotation.PathVariable("shopId") Long shopId);
+
     @PostMapping("/core/items/deduct-stock")
     void deductStock(@RequestBody Map<String, Object> payload);
 

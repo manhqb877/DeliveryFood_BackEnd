@@ -124,7 +124,31 @@ public class ShopService {
                 .shopLng(shop.getShopLng())
                 .avgRating(shop.getAvgRating())
                 .totalReviews(shop.getTotalReviews())
+                .isOpen(shop.getIsOpen())
+                .isAcceptingOrders(shop.getIsAcceptingOrders())
                 .categories(categoryDtos)
                 .build();
+    }
+
+    public Shop updateShopStatus(Long shopId, Boolean isOpen, Boolean isAcceptingOrders) {
+        Shop shop = shopRepository.findById(shopId)
+                .orElseThrow(() -> new ResourceNotFoundException("Shop not found with id: " + shopId));
+        if (isOpen != null) shop.setIsOpen(isOpen);
+        if (isAcceptingOrders != null) shop.setIsAcceptingOrders(isAcceptingOrders);
+        return shopRepository.save(shop);
+    }
+
+    public Shop updateShop(Long shopId, Shop shopData) {
+        Shop shop = shopRepository.findById(shopId)
+                .orElseThrow(() -> new ResourceNotFoundException("Shop not found with id: " + shopId));
+        if (shopData.getShopName() != null) shop.setShopName(shopData.getShopName());
+        if (shopData.getShopDescription() != null) shop.setShopDescription(shopData.getShopDescription());
+        if (shopData.getLogoUrl() != null) shop.setLogoUrl(shopData.getLogoUrl());
+        if (shopData.getCoverImageUrl() != null) shop.setCoverImageUrl(shopData.getCoverImageUrl());
+        if (shopData.getLocationDetail() != null) shop.setLocationDetail(shopData.getLocationDetail());
+        if (shopData.getPhone() != null) shop.setPhone(shopData.getPhone());
+        if (shopData.getIsOpen() != null) shop.setIsOpen(shopData.getIsOpen());
+        if (shopData.getIsAcceptingOrders() != null) shop.setIsAcceptingOrders(shopData.getIsAcceptingOrders());
+        return shopRepository.save(shop);
     }
 }
