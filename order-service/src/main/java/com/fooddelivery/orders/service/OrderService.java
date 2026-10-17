@@ -614,17 +614,29 @@ public class OrderService {
                 .map(OrderItem::getTotalPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Phân bổ giảm giá: nếu voucher thuộc riêng shop này thì áp dụng, nếu voucher platform thì chia tỷ lệ theo doanh thu món
+        // Phân bổ giảm giá: ưu tiên lấy đúng số tiền giảm giá của riêng quán này từ deliveryAddress
         BigDecimal shopDiscount = BigDecimal.ZERO;
         String shopPromoCode = null;
-        if (order.getDiscountAmount() != null && order.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+
+        if (order.getDeliveryAddress() != null) {
+            if (targetShopId.equals(order.getShopId()) && order.getDeliveryAddress().get("shop1Discount") != null) {
+                try {
+                    shopDiscount = new BigDecimal(order.getDeliveryAddress().get("shop1Discount").toString());
+                    shopPromoCode = order.getPromotionCode();
+                } catch (Exception ignored) {}
+            } else if (targetShopId.equals(order.getShop2Id()) && order.getDeliveryAddress().get("shop2Discount") != null) {
+                try {
+                    shopDiscount = new BigDecimal(order.getDeliveryAddress().get("shop2Discount").toString());
+                    shopPromoCode = order.getPromotionCode();
+                } catch (Exception ignored) {}
+            }
+        }
+
+        if (shopDiscount.compareTo(BigDecimal.ZERO) == 0 && order.getDiscountAmount() != null && order.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
             Long promoShopId = getPromotionShopId(order.getPromotionId(), order.getPromotionCode());
             if (promoShopId != null) {
                 if (promoShopId.equals(targetShopId)) {
                     shopDiscount = order.getDiscountAmount();
-                    if (shopDiscount.compareTo(shopSubtotal) > 0) {
-                        shopDiscount = shopSubtotal;
-                    }
                     shopPromoCode = order.getPromotionCode();
                 } else {
                     shopDiscount = BigDecimal.ZERO;
@@ -641,6 +653,11 @@ public class OrderService {
                     shopPromoCode = order.getPromotionCode();
                 }
             }
+        }
+
+        // Đảm bảo không bao giờ giảm vượt quá tổng tiền món của quán này
+        if (shopDiscount.compareTo(shopSubtotal) > 0) {
+            shopDiscount = shopSubtotal;
         }
 
         BigDecimal shopTotal = shopSubtotal.subtract(shopDiscount);

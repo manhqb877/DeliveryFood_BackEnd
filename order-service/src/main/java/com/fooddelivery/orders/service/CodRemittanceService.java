@@ -118,7 +118,24 @@ public class CodRemittanceService {
 
                 BigDecimal discount1 = BigDecimal.ZERO;
                 BigDecimal discount2 = BigDecimal.ZERO;
-                if (order.getDiscountAmount() != null && order.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+
+                // 1. Kiểm tra deliveryAddress JSONB xem có lưu chính xác shop1Discount và shop2Discount từ client không
+                if (order.getDeliveryAddress() != null) {
+                    if (order.getDeliveryAddress().get("shop1Discount") != null) {
+                        try {
+                            discount1 = new BigDecimal(order.getDeliveryAddress().get("shop1Discount").toString());
+                        } catch (Exception ignored) {}
+                    }
+                    if (order.getDeliveryAddress().get("shop2Discount") != null) {
+                        try {
+                            discount2 = new BigDecimal(order.getDeliveryAddress().get("shop2Discount").toString());
+                        } catch (Exception ignored) {}
+                    }
+                }
+
+                // 2. Nếu chưa có, fallback vào promotionId / promotionCode
+                if (discount1.compareTo(BigDecimal.ZERO) == 0 && discount2.compareTo(BigDecimal.ZERO) == 0 &&
+                    order.getDiscountAmount() != null && order.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
                     Long promoShopId = null;
                     if (order.getPromotionId() != null) {
                         try {
@@ -149,7 +166,9 @@ public class CodRemittanceService {
                     }
                 }
 
-                // Tiền món hoàn về mỗi quán (tách biệt rõ ràng, không bao gồm phí ship của shipper)
+                // Tiền món hoàn về mỗi quán (tách biệt rõ ràng, không bao gồm phí ship của shipper và không trừ vượt subtotal quán)
+                discount1 = discount1.min(subtotal1);
+                discount2 = discount2.min(subtotal2);
                 shop1Amount = subtotal1.subtract(discount1).max(BigDecimal.ZERO);
                 shop2Amount = subtotal2.subtract(discount2).max(BigDecimal.ZERO);
             } catch (Exception ex) {
