@@ -36,7 +36,7 @@ public class OrderEventListener {
     public void handleOrderEvent(String message) {
         try {
             OrderEvent event = objectMapper.readValue(message, OrderEvent.class);
-            log.info("Received OrderEvent from Kafka: {}", event.getEventType());
+            log.info("Received OrderEvent from Kafka: {} for order {}", event.getEventType(), event.getOrderId());
 
             if ("ORDER_CREATED".equals(event.getEventType())) {
                 log.info("Processing ORDER_CREATED for order {}", event.getOrderId());
@@ -44,13 +44,59 @@ public class OrderEventListener {
             } else if ("ORDER_STATUS_CHANGED".equals(event.getEventType())) {
                 String status = event.getOrderStatus();
                 log.info("Order {} status changed to {}", event.getOrderId(), status);
-
-                if ("PLACED".equals(status) || "CONFIRMED".equals(status) || "READY_FOR_PICKUP".equals(status) || "PREPARING".equals(status)) {
-                    createDeliveryIfNotExists(event);
-                }
+                handleOrderStatusChanged(event);
             }
         } catch (Exception e) {
             log.error("Error processing Kafka message: {}", e.getMessage(), e);
+        }
+    }
+
+    private void handleOrderStatusChanged(OrderEvent event) {
+        Optional<Delivery> existing = deliveryRepository.findByOrderId(event.getOrderId());
+        if (existing.isEmpty()) {
+            createDeliveryIfNotExists(event);
+            existing = deliveryRepository.findByOrderId(event.getOrderId());
+        }
+        if (existing.isPresent()) {
+            Delivery d = existing.get();
+            if (Boolean.TRUE.equals(event.getShop1Confirmed())) {
+                d.setShop1Confirmed(true);
+            }
+            if (Boolean.TRUE.equals(event.getShop2Confirmed())) {
+                d.setShop2Confirmed(true);
+            }
+            if (event.getShop2Id() != null) {
+                d.setIsMultiShop(true);
+                d.setShop2Id(event.getShop2Id());
+                if (event.getShop2Name() != null) d.setShop2Name(event.getShop2Name());
+            }
+
+            boolean isMulti = Boolean.TRUE.equals(d.getIsMultiShop()) || d.getShop2Id() != null || event.getShop2Id() != null;
+            boolean allConfirmed;
+            if (isMulti) {
+                allConfirmed = Boolean.TRUE.equals(d.getShop1Confirmed()) && Boolean.TRUE.equals(d.getShop2Confirmed());
+            } else {
+                allConfirmed = Boolean.TRUE.equals(d.getShop1Confirmed()) ||
+                        Boolean.TRUE.equals(event.getAllConfirmed()) ||
+                        "CONFIRMED".equals(event.getOrderStatus()) ||
+                        "PREPARING".equals(event.getOrderStatus()) ||
+                        "READY_FOR_PICKUP".equals(event.getOrderStatus());
+            }
+
+            if (allConfirmed) {
+                d.setReadyForShipper(true);
+                log.info("Delivery for order {} is now READY FOR SHIPPER (isMulti={}, shop1Conf={}, shop2Conf={})",
+                        event.getOrderId(), isMulti, d.getShop1Confirmed(), d.getShop2Confirmed());
+            }
+
+            if ("CANCELLED".equals(event.getOrderStatus())) {
+                d.setStatus(DeliveryStatus.CANCELLED);
+                d.setReadyForShipper(false);
+                d.setFailureReason(event.getCancelReason());
+                log.info("Delivery for order {} CANCELLED", event.getOrderId());
+            }
+
+            deliveryRepository.save(d);
         }
     }
 
@@ -58,8 +104,17 @@ public class OrderEventListener {
         Optional<Delivery> existing = deliveryRepository.findByOrderId(event.getOrderId());
         if (existing.isPresent()) {
             log.info("Delivery already exists for order {}, updating if needed", event.getOrderId());
-            // Cập nhật địa chỉ nếu trước đó bị "Địa chỉ mặc định"
             Delivery d = existing.get();
+            if (Boolean.TRUE.equals(event.getShop1Confirmed())) {
+                d.setShop1Confirmed(true);
+            }
+            if (Boolean.TRUE.equals(event.getShop2Confirmed())) {
+                d.setShop2Confirmed(true);
+            }
+            if (Boolean.TRUE.equals(event.getAllConfirmed())) {
+                d.setReadyForShipper(true);
+            }
+            // Cập nhật địa chỉ nếu trước đó bị "Địa chỉ mặc định"
             if ("Địa chỉ mặc định".equals(d.getDeliveryAddress()) && event.getDeliveryAddress() != null) {
                 d.setDeliveryAddress(event.getDeliveryAddress());
                 // Geocode lại nếu toạ độ là mặc định
@@ -71,8 +126,8 @@ public class OrderEventListener {
                         log.info("Updated delivery coords for order {}: {}, {}", event.getOrderId(), coords[0], coords[1]);
                     }
                 }
-                deliveryRepository.save(d);
             }
+            deliveryRepository.save(d);
             return;
         }
 
@@ -149,6 +204,9 @@ public class OrderEventListener {
                 .deliveryAddress(deliveryAddress)
                 .codAmount(event.getTotalAmount() != null ? event.getTotalAmount() : BigDecimal.ZERO)
                 .confirmMethod(ConfirmMethod.OTP)
+                .readyForShipper(Boolean.TRUE.equals(event.getAllConfirmed()))
+                .shop1Confirmed(Boolean.TRUE.equals(event.getShop1Confirmed()))
+                .shop2Confirmed(Boolean.TRUE.equals(event.getShop2Confirmed()))
                 .build();
 
         if (event.getShop2Id() != null) {

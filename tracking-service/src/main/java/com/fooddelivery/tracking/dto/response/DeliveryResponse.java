@@ -63,6 +63,9 @@ public class DeliveryResponse {
     private String confirmMethod;
     private String deliveryOtp;
     private String proofPhotoUrl;
+    private Boolean shop1Confirmed;
+    private Boolean shop2Confirmed;
+    private Boolean readyForShipper;
 
     // Mốc thời gian
     private OffsetDateTime assignedAt;

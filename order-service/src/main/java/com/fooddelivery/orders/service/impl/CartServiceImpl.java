@@ -145,21 +145,7 @@ public class CartServiceImpl implements CartService {
         }
 
         // Calculate total price for new item
-        BigDecimal optionsExtra = BigDecimal.ZERO;
-        List<Map<String, Object>> opts = request.getSelectedOptions();
-        if (opts != null) {
-            for (Map<String, Object> opt : opts) {
-                Object ep = opt.get("extra_price");
-                if (ep == null) {
-                    ep = opt.get("extraPrice");
-                }
-                if (ep != null) {
-                    try {
-                        optionsExtra = optionsExtra.add(new BigDecimal(ep.toString()));
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
+        BigDecimal optionsExtra = calculateOptionsExtra(request.getSelectedOptions());
 
         BigDecimal unitPrice = request.getUnitPrice() != null ? request.getUnitPrice() : BigDecimal.ZERO;
         short qty = request.getQuantity() != null ? request.getQuantity() : 1;
@@ -208,11 +194,7 @@ public class CartServiceImpl implements CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("CartItem not found"));
 
         Cart cart = cartItem.getCart();
-        // Authorization check
-        if (userId != null && !userId.equals(cart.getUserId())) {
-            return ApiResponse.builder().status(403).message("Forbidden").build();
-        }
-        if (guestSessionId != null && !guestSessionId.equals(cart.getGuestSessionId())) {
+        if (!isCartOwner(cart, userId, guestSessionId)) {
             return ApiResponse.builder().status(403).message("Forbidden").build();
         }
 
@@ -234,16 +216,7 @@ public class CartServiceImpl implements CartService {
         }
 
         // Recalculate item total
-        BigDecimal optionsExtra = BigDecimal.ZERO;
-        List<Map<String, Object>> opts = cartItem.getSelectedOptions();
-        if (opts != null) {
-            for (Map<String, Object> opt : opts) {
-                Object ep = opt.get("extra_price");
-                if (ep != null) {
-                    try { optionsExtra = optionsExtra.add(new BigDecimal(ep.toString())); } catch (Exception ignored) {}
-                }
-            }
-        }
+        BigDecimal optionsExtra = calculateOptionsExtra(cartItem.getSelectedOptions());
         cartItem.setTotalPrice(cartItem.getUnitPrice().add(optionsExtra).multiply(BigDecimal.valueOf(cartItem.getQuantity())));
         cartItemRepository.save(cartItem);
 
@@ -261,6 +234,10 @@ public class CartServiceImpl implements CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("CartItem not found"));
 
         Cart cart = cartItem.getCart();
+        if (!isCartOwner(cart, userId, guestSessionId)) {
+            return ApiResponse.builder().status(403).message("Forbidden").build();
+        }
+
         cartItemRepository.delete(cartItem);
         recalculateSubtotal(cart);
 
@@ -274,6 +251,10 @@ public class CartServiceImpl implements CartService {
     public ApiResponse clearCart(Long cartId, Long userId, Long guestSessionId) {
         Cart cart = cartRepository.findById(cartId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
+        if (!isCartOwner(cart, userId, guestSessionId)) {
+            return ApiResponse.builder().status(403).message("Forbidden").build();
+        }
+
 
         cartItemRepository.deleteAllByCartId(cartId);
         cart.setSubtotal(BigDecimal.ZERO);
@@ -282,6 +263,35 @@ public class CartServiceImpl implements CartService {
     }
 
     // ---- Private helpers ----
+
+    private boolean isCartOwner(Cart cart, Long userId, Long guestSessionId) {
+        if (userId == null && guestSessionId == null) {
+            return false;
+        }
+        return (userId == null || userId.equals(cart.getUserId()))
+                && (guestSessionId == null || guestSessionId.equals(cart.getGuestSessionId()));
+    }
+
+    private BigDecimal calculateOptionsExtra(List<Map<String, Object>> options) {
+        BigDecimal extra = BigDecimal.ZERO;
+        if (options == null) {
+            return extra;
+        }
+        for (Map<String, Object> option : options) {
+            Object price = option.get("extra_price");
+            if (price == null) {
+                price = option.get("extraPrice");
+            }
+            if (price != null) {
+                try {
+                    extra = extra.add(new BigDecimal(price.toString()));
+                } catch (NumberFormatException ignored) {
+                    // Preserve the existing behavior for malformed option prices.
+                }
+            }
+        }
+        return extra;
+    }
 
     private Optional<Cart> findCart(Long userId, Long guestSessionId, Long shopId) {
         if (userId != null && shopId != null) {

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # =====================================================================
   # INFRASTRUCTURE SERVICES: REDIS, KAFKA, ZOOKEEPER
@@ -36,7 +34,7 @@ services:
     image: redis:7-alpine
     container_name: delivery-redis
     ports:
-      - "6380:6379"
+      - "6381:6379"
     networks:
       - delivery-net
 

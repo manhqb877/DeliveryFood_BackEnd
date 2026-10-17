@@ -44,10 +44,22 @@ public class Order {
     private Long guestSessionId; // ID phiên vãng lai
 
     @Column(name = "shop_id", nullable = false)
-    private Long shopId; // ID gian hàng
+    private Long shopId; // ID gian hàng 1
 
     @Column(name = "shop_name", nullable = false, length = 255)
-    private String shopName; // Snapshot tên quán
+    private String shopName; // Snapshot tên quán 1 (hoặc tên ghép)
+
+    @Column(name = "shop2_id")
+    private Long shop2Id; // ID gian hàng 2 (nếu đơn ghép đa quán)
+
+    @Column(name = "shop2_name", length = 255)
+    private String shop2Name; // Snapshot tên quán 2
+
+    @Column(name = "shop1_confirmed")
+    private Boolean shop1Confirmed = false; // Quán 1 đã xác nhận đơn
+
+    @Column(name = "shop2_confirmed")
+    private Boolean shop2Confirmed = false; // Quán 2 đã xác nhận đơn (đơn ghép)
 
     @Column(name = "area_id", nullable = false)
     private Long areaId; // ID khu vực

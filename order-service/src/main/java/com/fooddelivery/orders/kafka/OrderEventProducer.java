@@ -3,6 +3,7 @@ package com.fooddelivery.orders.kafka;
 import com.fooddelivery.orders.dto.event.OrderEvent;
 import com.fooddelivery.orders.entity.Order;
 import com.fooddelivery.orders.entity.OrderItem;
+import com.fooddelivery.orders.enums.OrderStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -92,6 +93,11 @@ public class OrderEventProducer {
     }
 
     public void publishOrderStatusChanged(Order order, String oldStatus, String newStatus) {
+        boolean allConfirmed = !OrderStatus.PLACED.name().equals(newStatus) && !OrderStatus.CANCELLED.name().equals(newStatus);
+        publishOrderStatusChanged(order, oldStatus, newStatus, allConfirmed);
+    }
+
+    public void publishOrderStatusChanged(Order order, String oldStatus, String newStatus, boolean allConfirmed) {
         try {
             String customerName = extractField(order.getDeliveryAddress(), "recipientName");
             String customerPhone = extractFieldMulti(order.getDeliveryAddress(), "recipientPhone", "phoneNumber");
@@ -105,6 +111,11 @@ public class OrderEventProducer {
                     .orderId(order.getId())
                     .orderCode(order.getOrderCode())
                     .shopId(order.getShopId())
+                    .shop2Id(order.getShop2Id())
+                    .shop2Name(order.getShop2Name())
+                    .shop1Confirmed(order.getShop1Confirmed())
+                    .shop2Confirmed(order.getShop2Confirmed())
+                    .allConfirmed(allConfirmed)
                     .userId(order.getUserId())
                     .guestSessionId(order.getGuestSessionId())
                     .customerName(customerName)
@@ -119,8 +130,8 @@ public class OrderEventProducer {
                     .timestamp(Instant.now())
                     .build();
 
-            log.info("Publishing ORDER_STATUS_CHANGED ({} -> {}) for order #{} to Kafka topic '{}'",
-                    oldStatus, newStatus, order.getOrderCode(), TOPIC_ORDER_EVENTS);
+            log.info("Publishing ORDER_STATUS_CHANGED ({} -> {}) for order #{} (allConfirmed={}) to Kafka topic '{}'",
+                    oldStatus, newStatus, order.getOrderCode(), allConfirmed, TOPIC_ORDER_EVENTS);
 
             kafkaTemplate.send(TOPIC_ORDER_EVENTS, String.valueOf(order.getId()), event)
                     .whenComplete((result, ex) -> {

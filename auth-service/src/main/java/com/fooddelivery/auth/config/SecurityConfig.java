@@ -33,6 +33,7 @@ public class SecurityConfig {
             "/auth/register",
             "/auth/register-shipper",
             "/auth/shops/register",
+            "/auth/shops/*",
             "/auth/login",
             "/auth/refresh",
             "/auth/forgot-password/**",

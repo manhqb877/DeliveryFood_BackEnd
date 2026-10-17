@@ -19,10 +19,10 @@ public interface DeliveryRepository extends JpaRepository<Delivery, Long> {
 
     List<Delivery> findByShipperId(Long shipperId);
 
-    @Query("SELECT d FROM Delivery d WHERE d.shipperId IS NULL AND d.status = 'PENDING' ORDER BY d.createdAt DESC")
+    @Query("SELECT d FROM Delivery d WHERE d.shipperId IS NULL AND d.status = 'PENDING' AND d.readyForShipper = true ORDER BY d.createdAt DESC")
     List<Delivery> findAvailableDeliveries();
 
-    @Query("SELECT d FROM Delivery d WHERE d.shipperId IS NULL AND d.status = 'PENDING' AND d.areaId = :areaId ORDER BY d.createdAt DESC")
+    @Query("SELECT d FROM Delivery d WHERE d.shipperId IS NULL AND d.status = 'PENDING' AND d.readyForShipper = true AND d.areaId = :areaId ORDER BY d.createdAt DESC")
     List<Delivery> findAvailableDeliveriesByArea(@Param("areaId") Long areaId);
 
     boolean existsByOrderId(Long orderId);

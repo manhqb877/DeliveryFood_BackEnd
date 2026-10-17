@@ -19,4 +19,6 @@ public class UpdateOrderStatusRequest {
     private String cancelReason;
 
     private String actorType; // SHOP, CUSTOMER, SHIPPER, ADMIN
+
+    private Long shopId; // ID quán thực hiện thao tác xác nhận/hủy
 }

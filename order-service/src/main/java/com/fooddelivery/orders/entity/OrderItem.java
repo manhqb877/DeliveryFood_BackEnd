@@ -31,6 +31,9 @@ public class OrderItem {
     @Column(name = "item_id", nullable = false)
     private Long itemId; // Tham chiếu lỏng core_db.items.id
 
+    @Column(name = "shop_id")
+    private Long shopId; // ID gian hàng sở hữu món này
+
     @Column(name = "item_name", nullable = false, length = 255)
     private String itemName; // Snapshot tên món bất biến
 

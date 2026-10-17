@@ -18,4 +18,5 @@ public class OrderItemResponse {
     private BigDecimal totalPrice;
     private List<Map<String, Object>> selectedOptions;
     private String itemNote;
+    private Long shopId;
 }

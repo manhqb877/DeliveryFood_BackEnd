@@ -581,6 +581,14 @@ public class PromotionServiceImpl implements PromotionService {
         return toResponse(updated);
     }
 
+    @Override
+    public PromotionResponse getPromotionById(Long id) {
+        Promotion p = promotionRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Không tìm thấy khuyến mãi: " + id));
+        return toResponse(p);
+    }
+
     private PromotionResponse toResponse(Promotion p) {
         int totalLimit = p.getTotalLimit() != null ? p.getTotalLimit() : 0;
         int usedCount = p.getUsedCount() != null ? p.getUsedCount() : 0;

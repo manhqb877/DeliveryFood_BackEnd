@@ -216,6 +216,8 @@ public class OrderService {
                 .guestSessionId(orderGuestSessionId)
                 .shopId(shop1Id)
                 .shopName(finalShopName)
+                .shop2Id(shop2Id)
+                .shop2Name(shop2Name)
                 .areaId(1L)
                 .deliveryAddress(request.getDeliveryAddress())
                 .subtotal(subtotal)
@@ -227,6 +229,8 @@ public class OrderService {
                 .paymentMethod(PaymentMethod.valueOf(request.getPaymentMethod()))
                 .paymentStatus(PaymentStatus.PENDING)
                 .orderStatus(OrderStatus.PLACED)
+                .shop1Confirmed(false)
+                .shop2Confirmed(false)
                 .orderNote(request.getOrderNote())
                 .idempotencyKey(request.getIdempotencyKey())
                 .sagaStatus(SagaStatus.COMPLETED)
@@ -239,6 +243,7 @@ public class OrderService {
             OrderItem.builder()
                     .order(savedOrder)
                     .itemId(ci.getItemId())
+                    .shopId(ci.getCart() != null ? ci.getCart().getShopId() : savedOrder.getShopId())
                     .itemName(ci.getItemName())
                     .quantity(ci.getQuantity().shortValue())
                     .unitPrice(ci.getUnitPrice())
@@ -344,7 +349,7 @@ public class OrderService {
     }
 
     public List<OrderResponse> getShopOrders(Long shopId) {
-        List<Order> orders = orderRepository.findByShopIdOrderByPlacedAtDesc(shopId);
+        List<Order> orders = orderRepository.findShopOrders(shopId);
         if (orders.isEmpty()) {
             return java.util.Collections.emptyList();
         }
@@ -355,7 +360,7 @@ public class OrderService {
 
         return orders.stream().map(order -> {
             List<OrderItem> items = itemsByOrderId.getOrDefault(order.getId(), java.util.Collections.emptyList());
-            return mapToResponse(order, items);
+            return mapToShopResponse(order, items, shopId);
         }).collect(Collectors.toList());
     }
 
@@ -383,33 +388,12 @@ public class OrderService {
         OrderStatus oldStatus = order.getOrderStatus();
         OrderStatus newStatus = request.getStatus();
         OffsetDateTime now = OffsetDateTime.now();
+        Long requestingShopId = request.getShopId();
+        boolean isMultiShop = order.getShop2Id() != null;
+        boolean allConfirmed = false;
 
-        order.setOrderStatus(newStatus);
-
-        if (newStatus == OrderStatus.CONFIRMED || newStatus == OrderStatus.PREPARING) {
-            if (order.getConfirmedAt() == null) {
-                order.setConfirmedAt(now);
-            }
-        } else if (newStatus == OrderStatus.READY_FOR_PICKUP) {
-            order.setReadyAt(now);
-        } else if (newStatus == OrderStatus.DELIVERED) {
-            order.setDeliveredAt(now);
-            codRemittanceService.generateRemittanceIfApplicable(order);
-            try {
-                String trackingUrl = System.getenv().getOrDefault("TRACKING_SERVICE_URL", "http://localhost:8084");
-                java.util.Map<String, Object> deliveryInfo = restTemplate.getForObject(trackingUrl + "/tracking/deliveries/order/" + order.getId(), java.util.Map.class);
-                if (deliveryInfo != null && deliveryInfo.get("shipperId") != null) {
-                    Long shipperId = Long.valueOf(deliveryInfo.get("shipperId").toString());
-                    String authUrl = System.getenv().getOrDefault("AUTH_SERVICE_URL", "http://localhost:8081");
-                        restTemplate.postForLocation(authUrl + "/auth/shippers/" + shipperId + "/increment-delivery", null);
-                        log.info("Incremented total deliveries for shipper {}", shipperId);
-                    }
-            } catch (Exception e) {
-                log.warn("Could not increment deliveries for order {}: {}", order.getId(), e.getMessage());
-            }
-        } else if (newStatus == OrderStatus.COMPLETED) {
-            order.setCompletedAt(now);
-        } else if (newStatus == OrderStatus.CANCELLED) {
+        if (newStatus == OrderStatus.CANCELLED) {
+            order.setOrderStatus(OrderStatus.CANCELLED);
             order.setCancelledAt(now);
             if (request.getCancelReason() != null) {
                 order.setCancelReason(request.getCancelReason());
@@ -419,6 +403,73 @@ public class OrderService {
             } else {
                 order.setCancelledBy("SHOP");
             }
+        } else if (newStatus == OrderStatus.CONFIRMED || newStatus == OrderStatus.PREPARING) {
+            if (!isMultiShop) {
+                order.setShop1Confirmed(true);
+                order.setOrderStatus(newStatus);
+                allConfirmed = true;
+                if (order.getConfirmedAt() == null) {
+                    order.setConfirmedAt(now);
+                }
+            } else {
+                if (requestingShopId != null && requestingShopId.equals(order.getShop2Id())) {
+                    order.setShop2Confirmed(true);
+                    log.info("Multi-shop Order {}: Shop 2 ({}) confirmed", orderId, requestingShopId);
+                } else if (requestingShopId != null && requestingShopId.equals(order.getShopId())) {
+                    order.setShop1Confirmed(true);
+                    log.info("Multi-shop Order {}: Shop 1 ({}) confirmed", orderId, requestingShopId);
+                } else {
+                    if (!Boolean.TRUE.equals(order.getShop1Confirmed())) {
+                        order.setShop1Confirmed(true);
+                        log.info("Multi-shop Order {}: Inferred Shop 1 confirmed", orderId);
+                    } else {
+                        order.setShop2Confirmed(true);
+                        log.info("Multi-shop Order {}: Inferred Shop 2 confirmed", orderId);
+                    }
+                }
+
+                allConfirmed = Boolean.TRUE.equals(order.getShop1Confirmed()) && Boolean.TRUE.equals(order.getShop2Confirmed());
+
+                if (allConfirmed) {
+                    order.setOrderStatus(newStatus);
+                    if (order.getConfirmedAt() == null) {
+                        order.setConfirmedAt(now);
+                    }
+                    log.info("Multi-shop Order {}: BOTH SHOPS CONFIRMED! Order status moved to {}", orderId, newStatus);
+                } else {
+                    order.setOrderStatus(OrderStatus.PLACED);
+                    log.info("Multi-shop Order {}: Waiting for other shop to confirm. Shop1={}, Shop2={}",
+                            orderId, order.getShop1Confirmed(), order.getShop2Confirmed());
+                }
+            }
+        } else if (newStatus == OrderStatus.READY_FOR_PICKUP) {
+            order.setReadyAt(now);
+            order.setOrderStatus(newStatus);
+            allConfirmed = true;
+        } else if (newStatus == OrderStatus.DELIVERED) {
+            order.setOrderStatus(newStatus);
+            order.setDeliveredAt(now);
+            allConfirmed = true;
+            codRemittanceService.generateRemittanceIfApplicable(order);
+            try {
+                String trackingUrl = System.getenv().getOrDefault("TRACKING_SERVICE_URL", "http://localhost:8084");
+                java.util.Map<String, Object> deliveryInfo = restTemplate.getForObject(trackingUrl + "/tracking/deliveries/order/" + order.getId(), java.util.Map.class);
+                if (deliveryInfo != null && deliveryInfo.get("shipperId") != null) {
+                    Long shipperId = Long.valueOf(deliveryInfo.get("shipperId").toString());
+                    String authUrl = System.getenv().getOrDefault("AUTH_SERVICE_URL", "http://localhost:8081");
+                    restTemplate.postForLocation(authUrl + "/auth/shippers/" + shipperId + "/increment-delivery", null);
+                    log.info("Incremented total deliveries for shipper {}", shipperId);
+                }
+            } catch (Exception e) {
+                log.warn("Could not increment deliveries for order {}: {}", order.getId(), e.getMessage());
+            }
+        } else if (newStatus == OrderStatus.COMPLETED) {
+            order.setOrderStatus(newStatus);
+            order.setCompletedAt(now);
+            allConfirmed = true;
+        } else {
+            order.setOrderStatus(newStatus);
+            allConfirmed = true;
         }
 
         Order updatedOrder = orderRepository.save(order);
@@ -428,21 +479,39 @@ public class OrderService {
         else if ("SHIPPER".equalsIgnoreCase(request.getActorType())) actor = ActorType.SHIPPER;
         else if ("ADMIN".equalsIgnoreCase(request.getActorType())) actor = ActorType.ADMIN;
 
+        String note;
+        if (newStatus == OrderStatus.CANCELLED) {
+            note = request.getCancelReason() != null ? "Lý do: " + request.getCancelReason() : "Đơn hàng đã bị hủy";
+        } else if (isMultiShop && (newStatus == OrderStatus.CONFIRMED || newStatus == OrderStatus.PREPARING)) {
+            if (allConfirmed) {
+                note = "Cả 2 quán đã xác nhận đơn hàng thành công, sẵn sàng cho Shipper nhận đơn";
+            } else {
+                note = Boolean.TRUE.equals(order.getShop1Confirmed())
+                        ? "Quán 1 đã xác nhận món, đang chờ quán 2 xác nhận"
+                        : "Quán 2 đã xác nhận món, đang chờ quán 1 xác nhận";
+            }
+        } else {
+            note = request.getCancelReason() != null ? "Lý do: " + request.getCancelReason() : "Trạng thái đổi từ " + oldStatus + " sang " + newStatus;
+        }
+
         OrderStatusHistory history = OrderStatusHistory.builder()
                 .orderId(updatedOrder.getId())
                 .oldStatus(oldStatus)
-                .newStatus(newStatus)
+                .newStatus(updatedOrder.getOrderStatus())
                 .actorType(actor)
-                .note(request.getCancelReason() != null ? "Lý do: " + request.getCancelReason() : "Trạng thái đổi từ " + oldStatus + " sang " + newStatus)
+                .note(note)
                 .build();
         statusHistoryRepository.save(history);
 
-        log.info("Order ID: {} status updated from {} to {}", orderId, oldStatus, newStatus);
+        log.info("Order ID: {} status updated to {}", orderId, updatedOrder.getOrderStatus());
         
         // Publish status update event to Kafka
-        orderEventProducer.publishOrderStatusChanged(updatedOrder, oldStatus != null ? oldStatus.name() : null, newStatus.name());
+        orderEventProducer.publishOrderStatusChanged(updatedOrder, oldStatus != null ? oldStatus.name() : null, updatedOrder.getOrderStatus().name(), allConfirmed);
 
         List<OrderItem> items = orderItemRepository.findByOrderId(updatedOrder.getId());
+        if (requestingShopId != null) {
+            return mapToShopResponse(updatedOrder, items, requestingShopId);
+        }
         return mapToResponse(updatedOrder, items);
     }
 
@@ -451,6 +520,7 @@ public class OrderService {
             OrderItemResponse.builder()
                     .id(i.getId())
                     .itemId(i.getItemId())
+                    .shopId(i.getShopId())
                     .itemName(i.getItemName())
                     .quantity(i.getQuantity().intValue())
                     .unitPrice(i.getUnitPrice())
@@ -467,6 +537,9 @@ public class OrderService {
                 .guestSessionId(order.getGuestSessionId())
                 .shopId(order.getShopId())
                 .shopName(order.getShopName())
+                .shop2Id(order.getShop2Id())
+                .shop2Name(order.getShop2Name())
+                .isMultiShop(order.getShop2Id() != null)
                 .deliveryAddress(order.getDeliveryAddress())
                 .subtotal(order.getSubtotal())
                 .deliveryFee(order.getDeliveryFee())
@@ -477,6 +550,166 @@ public class OrderService {
                 .paymentMethod(order.getPaymentMethod().name())
                 .paymentStatus(order.getPaymentStatus().name())
                 .orderStatus(order.getOrderStatus().name())
+                .shop1Confirmed(order.getShop1Confirmed())
+                .shop2Confirmed(order.getShop2Confirmed())
+                .orderNote(order.getOrderNote())
+                .cancelReason(order.getCancelReason())
+                .cancelledBy(order.getCancelledBy())
+                .placedAt(order.getPlacedAt())
+                .confirmedAt(order.getConfirmedAt())
+                .readyAt(order.getReadyAt())
+                .completedAt(order.getCompletedAt())
+                .cancelledAt(order.getCancelledAt())
+                .items(itemResponses)
+                .build();
+    }
+
+    private final Map<Long, Long> promoShopCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private Long getPromotionShopId(Long promoId, String promoCode) {
+        if (promoId != null && promoShopCache.containsKey(promoId)) {
+            return promoShopCache.get(promoId);
+        }
+        if (promoId != null) {
+            try {
+                Map<String, Object> details = coreServiceClient.getPromotionDetails(promoId);
+                if (details != null && details.get("shopId") != null) {
+                    Long sId = Long.valueOf(details.get("shopId").toString());
+                    promoShopCache.put(promoId, sId);
+                    return sId;
+                }
+            } catch (Exception e) {
+                log.warn("Could not fetch promotion {} details from core-service: {}", promoId, e.getMessage());
+            }
+        }
+        if (promoCode != null) {
+            String upper = promoCode.toUpperCase();
+            if (upper.contains("BANCONG")) return 40L;
+            if (upper.contains("FASTFOOD") || upper.contains("HEM")) return 39L;
+        }
+        return null;
+    }
+
+    private OrderResponse mapToShopResponse(Order order, List<OrderItem> allItems, Long targetShopId) {
+        boolean isMultiShop = order.getShop2Id() != null || 
+                allItems.stream().map(OrderItem::getShopId).filter(java.util.Objects::nonNull).distinct().count() > 1;
+
+        if (!isMultiShop) {
+            return mapToResponse(order, allItems);
+        }
+
+        // Lọc món ăn thuộc riêng quán này
+        List<OrderItem> shopItems = allItems.stream()
+                .filter(i -> targetShopId.equals(i.getShopId()) || (i.getShopId() == null && targetShopId.equals(order.getShopId())))
+                .collect(Collectors.toList());
+
+        // Fallback: nếu targetShopId là shop2 nhưng chưa có item nào gán shop2, lấy các item không thuộc shop1
+        if (shopItems.isEmpty() && targetShopId.equals(order.getShop2Id())) {
+            shopItems = allItems.stream()
+                    .filter(i -> !targetShopId.equals(order.getShopId()))
+                    .collect(Collectors.toList());
+        }
+
+        BigDecimal shopSubtotal = shopItems.stream()
+                .map(OrderItem::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Phân bổ giảm giá: nếu voucher thuộc riêng shop này thì áp dụng, nếu voucher platform thì chia tỷ lệ theo doanh thu món
+        BigDecimal shopDiscount = BigDecimal.ZERO;
+        String shopPromoCode = null;
+        if (order.getDiscountAmount() != null && order.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+            Long promoShopId = getPromotionShopId(order.getPromotionId(), order.getPromotionCode());
+            if (promoShopId != null) {
+                if (promoShopId.equals(targetShopId)) {
+                    shopDiscount = order.getDiscountAmount();
+                    if (shopDiscount.compareTo(shopSubtotal) > 0) {
+                        shopDiscount = shopSubtotal;
+                    }
+                    shopPromoCode = order.getPromotionCode();
+                } else {
+                    shopDiscount = BigDecimal.ZERO;
+                    shopPromoCode = null;
+                }
+            } else {
+                BigDecimal totalSubtotal = allItems.stream()
+                        .map(OrderItem::getTotalPrice)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (totalSubtotal.compareTo(BigDecimal.ZERO) > 0) {
+                    shopDiscount = order.getDiscountAmount()
+                            .multiply(shopSubtotal)
+                            .divide(totalSubtotal, 0, java.math.RoundingMode.HALF_UP);
+                    shopPromoCode = order.getPromotionCode();
+                }
+            }
+        }
+
+        BigDecimal shopTotal = shopSubtotal.subtract(shopDiscount);
+        if (shopTotal.compareTo(BigDecimal.ZERO) < 0) {
+            shopTotal = BigDecimal.ZERO;
+        }
+
+        String shopName;
+        if (targetShopId.equals(order.getShop2Id())) {
+            shopName = order.getShop2Name() != null ? order.getShop2Name() : "Shop #" + targetShopId;
+        } else {
+            shopName = order.getShopName();
+            if (shopName != null && shopName.contains(" & ")) {
+                shopName = shopName.split(" & ")[0].trim();
+            }
+        }
+
+        List<OrderItemResponse> itemResponses = shopItems.stream().map(i -> 
+            OrderItemResponse.builder()
+                    .id(i.getId())
+                    .itemId(i.getItemId())
+                    .shopId(i.getShopId())
+                    .itemName(i.getItemName())
+                    .quantity(i.getQuantity().intValue())
+                    .unitPrice(i.getUnitPrice())
+                    .totalPrice(i.getTotalPrice())
+                    .selectedOptions(i.getSelectedOptions())
+                    .itemNote(i.getItemNote())
+                    .build()
+        ).collect(Collectors.toList());
+
+        String effectiveStatus = order.getOrderStatus().name();
+        if (order.getOrderStatus() == OrderStatus.PLACED || order.getOrderStatus() == OrderStatus.CONFIRMED || order.getOrderStatus() == OrderStatus.PREPARING) {
+            boolean thisShopConfirmed = false;
+            if (targetShopId.equals(order.getShop2Id())) {
+                thisShopConfirmed = Boolean.TRUE.equals(order.getShop2Confirmed());
+            } else {
+                thisShopConfirmed = Boolean.TRUE.equals(order.getShop1Confirmed());
+            }
+
+            if (!thisShopConfirmed) {
+                effectiveStatus = "PLACED";
+            } else {
+                effectiveStatus = "PREPARING";
+            }
+        }
+
+        return OrderResponse.builder()
+                .id(order.getId())
+                .orderCode(order.getOrderCode())
+                .userId(order.getUserId())
+                .guestSessionId(order.getGuestSessionId())
+                .shopId(targetShopId)
+                .shopName(shopName)
+                .shop2Id(order.getShop2Id())
+                .shop2Name(order.getShop2Name())
+                .isMultiShop(true)
+                .shop1Confirmed(order.getShop1Confirmed())
+                .shop2Confirmed(order.getShop2Confirmed())
+                .deliveryAddress(order.getDeliveryAddress())
+                .subtotal(shopSubtotal)
+                .deliveryFee(BigDecimal.ZERO) // Shop không nhận phí ship
+                .discountAmount(shopDiscount)
+                .totalAmount(shopTotal)
+                .promotionCode(shopPromoCode)
+                .promotionId(shopPromoCode != null ? order.getPromotionId() : null)
+                .paymentMethod(order.getPaymentMethod().name())
+                .paymentStatus(order.getPaymentStatus().name())
+                .orderStatus(effectiveStatus)
                 .orderNote(order.getOrderNote())
                 .cancelReason(order.getCancelReason())
                 .cancelledBy(order.getCancelledBy())

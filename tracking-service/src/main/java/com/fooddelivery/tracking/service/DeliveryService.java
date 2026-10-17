@@ -111,6 +111,10 @@ public class DeliveryService {
             throw new IllegalStateException("Đơn hàng này đã được nhận bởi shipper khác");
         }
 
+        if (!Boolean.TRUE.equals(delivery.getReadyForShipper())) {
+            throw new IllegalStateException("Đơn hàng chưa được các quán xác nhận chuẩn bị món!");
+        }
+
         delivery.setShipperId(shipperId);
         delivery.setStatus(DeliveryStatus.ASSIGNED);
         delivery.setAssignedAt(OffsetDateTime.now());
@@ -395,6 +399,9 @@ public class DeliveryService {
                 .confirmMethod(d.getConfirmMethod() != null ? d.getConfirmMethod().name() : null)
                 .deliveryOtp(d.getDeliveryOtp())
                 .proofPhotoUrl(d.getProofPhotoUrl())
+                .shop1Confirmed(d.getShop1Confirmed())
+                .shop2Confirmed(d.getShop2Confirmed())
+                .readyForShipper(d.getReadyForShipper())
                 .assignedAt(d.getAssignedAt())
                 .pickedUpAt(d.getPickedUpAt())
                 .deliveredAt(d.getDeliveredAt())
