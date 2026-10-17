@@ -1,0 +1,32 @@
+# Maven build folder
+target/
+**/target/
+
+# Claude settings & logs
+.claude/
+**/.claude/
+
+# Skills folder
+skills/
+**/skills/
+
+# Environment Variables
+.env
+**/.env
+
+# Node
+node_modules/
+package-lock.json
+package.json
+.idea
+
+# AI Agent Service Python Cache
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+ai-agent-service/**/__pycache__/
+ai-agent-service/**/*.pyc
+
+# Scripts
+*.js
