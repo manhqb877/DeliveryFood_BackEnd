@@ -16,6 +16,11 @@ public class OrderResponse {
     private Long guestSessionId;
     private Long shopId;
     private String shopName;
+    private Long shop2Id;
+    private String shop2Name;
+    private Boolean isMultiShop;
+    private Boolean shop1Confirmed;
+    private Boolean shop2Confirmed;
     private Map<String, Object> deliveryAddress;
     
     private BigDecimal subtotal;

@@ -70,6 +70,11 @@ public class PromotionController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<PromotionResponse> getPromotionById(@PathVariable Long id) {
+        return ResponseEntity.ok(promotionService.getPromotionById(id));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<PromotionResponse> updatePromotion(
             @PathVariable Long id,

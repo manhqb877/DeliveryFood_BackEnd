@@ -20,4 +20,7 @@ public interface CoreServiceClient {
 
     @PostMapping("/promotions/redeem")
     Map<String, Object> redeemPromotion(@RequestBody Map<String, Object> payload);
+
+    @org.springframework.web.bind.annotation.GetMapping("/promotions/{id}")
+    Map<String, Object> getPromotionDetails(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
 }

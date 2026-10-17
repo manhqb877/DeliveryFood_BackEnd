@@ -26,6 +26,7 @@ public class CodRemittanceService {
     private final CodRemittanceRepository codRemittanceRepository;
     private final OrderItemRepository orderItemRepository;
     private final RestTemplate restTemplate;
+    private final com.fooddelivery.orders.client.CoreServiceClient coreServiceClient;
 
     @Transactional
     public void generateRemittanceIfApplicable(Order order) {
@@ -51,13 +52,16 @@ public class CodRemittanceService {
 
         boolean isMultiShop = false;
         Long shop1Id = order.getShopId();
-        Long shop2Id = null;
+        Long shop2Id = order.getShop2Id();
         String shop1Name = order.getShopName();
-        String shop2Name = null;
-        BigDecimal shop1Amount = order.getTotalAmount();
-        BigDecimal shop2Amount = BigDecimal.ZERO;
+        String shop2Name = order.getShop2Name();
 
-        if (deliveryInfo != null && Boolean.TRUE.equals(deliveryInfo.get("isMultiShop"))) {
+        if (shop2Id != null) {
+            isMultiShop = true;
+            if (shop1Name != null && shop1Name.contains(" & ")) {
+                shop1Name = shop1Name.split(" & ")[0].trim();
+            }
+        } else if (deliveryInfo != null && Boolean.TRUE.equals(deliveryInfo.get("isMultiShop"))) {
             isMultiShop = true;
             if (deliveryInfo.get("shop1Id") != null) {
                 shop1Id = Long.valueOf(deliveryInfo.get("shop1Id").toString());
@@ -78,21 +82,26 @@ public class CodRemittanceService {
             shop2Name = parts.length > 1 ? parts[1].trim() : "Quán 2";
         }
 
+        BigDecimal shop1Amount;
+        BigDecimal shop2Amount = BigDecimal.ZERO;
+
         if (isMultiShop) {
             try {
                 List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
-                String coreUrl = System.getenv().getOrDefault("CORE_SERVICE_URL", "http://localhost:8082");
                 BigDecimal subtotal1 = BigDecimal.ZERO;
                 BigDecimal subtotal2 = BigDecimal.ZERO;
 
                 for (OrderItem item : items) {
-                    Long itemShopId = null;
-                    try {
-                        Map<String, Object> itemData = restTemplate.getForObject(coreUrl + "/core/items/" + item.getItemId(), Map.class);
-                        if (itemData != null && itemData.get("shopId") != null) {
-                            itemShopId = Long.valueOf(itemData.get("shopId").toString());
-                        }
-                    } catch (Exception ignored) {}
+                    Long itemShopId = item.getShopId();
+                    if (itemShopId == null) {
+                        try {
+                            String coreUrl = System.getenv().getOrDefault("CORE_SERVICE_URL", "http://localhost:8082");
+                            Map<String, Object> itemData = restTemplate.getForObject(coreUrl + "/core/items/" + item.getItemId(), Map.class);
+                            if (itemData != null && itemData.get("shopId") != null) {
+                                itemShopId = Long.valueOf(itemData.get("shopId").toString());
+                            }
+                        } catch (Exception ignored) {}
+                    }
 
                     if (itemShopId != null && shop2Id != null && itemShopId.equals(shop2Id)) {
                         subtotal2 = subtotal2.add(item.getTotalPrice() != null ? item.getTotalPrice() : BigDecimal.ZERO);
@@ -107,21 +116,51 @@ public class CodRemittanceService {
                     }
                 }
 
-                BigDecimal totalItems = subtotal1.add(subtotal2);
-                if (totalItems.compareTo(BigDecimal.ZERO) > 0) {
-                    shop1Amount = order.getTotalAmount()
-                            .multiply(subtotal1)
-                            .divide(totalItems, 0, RoundingMode.HALF_UP);
-                    shop2Amount = order.getTotalAmount().subtract(shop1Amount);
-                } else {
-                    shop1Amount = order.getTotalAmount().divide(BigDecimal.valueOf(2), 0, RoundingMode.HALF_UP);
-                    shop2Amount = order.getTotalAmount().subtract(shop1Amount);
+                BigDecimal discount1 = BigDecimal.ZERO;
+                BigDecimal discount2 = BigDecimal.ZERO;
+                if (order.getDiscountAmount() != null && order.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    Long promoShopId = null;
+                    if (order.getPromotionId() != null) {
+                        try {
+                            Map<String, Object> details = coreServiceClient.getPromotionDetails(order.getPromotionId());
+                            if (details != null && details.get("shopId") != null) {
+                                promoShopId = Long.valueOf(details.get("shopId").toString());
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                    if (promoShopId == null && order.getPromotionCode() != null) {
+                        String upper = order.getPromotionCode().toUpperCase();
+                        if (upper.contains("BANCONG")) promoShopId = 40L;
+                        else if (upper.contains("FASTFOOD") || upper.contains("HEM")) promoShopId = 39L;
+                    }
+
+                    if (promoShopId != null) {
+                        if (promoShopId.equals(shop2Id)) {
+                            discount2 = order.getDiscountAmount();
+                        } else if (promoShopId.equals(shop1Id)) {
+                            discount1 = order.getDiscountAmount();
+                        }
+                    } else {
+                        BigDecimal totalSub = subtotal1.add(subtotal2);
+                        if (totalSub.compareTo(BigDecimal.ZERO) > 0) {
+                            discount1 = order.getDiscountAmount().multiply(subtotal1).divide(totalSub, 0, RoundingMode.HALF_UP);
+                            discount2 = order.getDiscountAmount().subtract(discount1);
+                        }
+                    }
                 }
+
+                // Tiền món hoàn về mỗi quán (tách biệt rõ ràng, không bao gồm phí ship của shipper)
+                shop1Amount = subtotal1.subtract(discount1).max(BigDecimal.ZERO);
+                shop2Amount = subtotal2.subtract(discount2).max(BigDecimal.ZERO);
             } catch (Exception ex) {
                 log.warn("Error calculating multi-shop breakdown for order {}: {}", order.getId(), ex.getMessage());
-                shop1Amount = order.getTotalAmount().divide(BigDecimal.valueOf(2), 0, RoundingMode.HALF_UP);
-                shop2Amount = order.getTotalAmount().subtract(shop1Amount);
+                shop1Amount = order.getSubtotal().divide(BigDecimal.valueOf(2), 0, RoundingMode.HALF_UP);
+                shop2Amount = order.getSubtotal().subtract(shop1Amount);
             }
+        } else {
+            // Đơn 1 quán: Tiền món hoàn về cho quán (không bao gồm phí ship của shipper)
+            BigDecimal discount = order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO;
+            shop1Amount = order.getSubtotal().subtract(discount).max(BigDecimal.ZERO);
         }
 
         CodRemittance remittance = CodRemittance.builder()
@@ -156,6 +195,12 @@ public class CodRemittanceService {
     public CodRemittance completeRemittance(Long remittanceId) {
         CodRemittance remittance = codRemittanceRepository.findById(remittanceId)
                 .orElseThrow(() -> new RuntimeException("Remittance not found"));
+
+        if ("COMPLETED".equalsIgnoreCase(remittance.getStatus())) {
+            log.info("Remittance {} is already completed", remittanceId);
+            return remittance;
+        }
+
         remittance.setStatus("COMPLETED");
         remittance.setCompletedAt(OffsetDateTime.now());
 
@@ -171,9 +216,10 @@ public class CodRemittanceService {
             log.info("Completed multi-shop remittance {} for order {}: Shop 1 ({}) = {}, Shop 2 ({}) = {}",
                     remittanceId, remittance.getOrderId(), remittance.getShopId(), amt1, remittance.getShop2Id(), amt2);
         } else {
-            creditShopOwnerWallet(remittance.getShopId(), remittance.getAmount(), remittance.getOrderId(), "Shipper hoàn tiền COD cho đơn #" + remittance.getOrderId());
+            BigDecimal foodAmount = remittance.getShop1Amount() != null ? remittance.getShop1Amount() : remittance.getAmount();
+            creditShopOwnerWallet(remittance.getShopId(), foodAmount, remittance.getOrderId(), "Shipper hoàn tiền COD cho đơn #" + remittance.getOrderId());
             log.info("Completed single-shop remittance {} for order {}: Shop {} = {}",
-                    remittanceId, remittance.getOrderId(), remittance.getShopId(), remittance.getAmount());
+                    remittanceId, remittance.getOrderId(), remittance.getShopId(), foodAmount);
         }
 
         return codRemittanceRepository.save(remittance);

@@ -40,4 +40,6 @@ public interface PromotionService {
     PromotionResponse updatePromotion(Long id, CreatePromotionRequest request);
 
     PromotionResponse approveOrRejectPromotion(Long id, Boolean approved, String rejectionReason);
+
+    PromotionResponse getPromotionById(Long id);
 }

@@ -63,6 +63,9 @@ public class Delivery {
     @Column(name = "pickup1_completed")
     private Boolean pickup1Completed = false;
 
+    @Column(name = "shop1_confirmed")
+    private Boolean shop1Confirmed = false;
+
     // Tọa độ điểm lấy hàng 2 (Dành cho đơn ghép / đơn 2 shop)
     @Column(name = "is_multi_shop")
     private Boolean isMultiShop = false;
@@ -82,8 +85,14 @@ public class Delivery {
     @Column(name = "shop2_name", length = 255)
     private String shop2Name;
 
+    @Column(name = "shop2_confirmed")
+    private Boolean shop2Confirmed = false;
+
     @Column(name = "pickup2_completed")
     private Boolean pickup2Completed = false;
+
+    @Column(name = "ready_for_shipper")
+    private Boolean readyForShipper = false; // Chỉ hiển thị cho Shipper khi tất cả quán đã xác nhận món
 
     @Column(name = "optimal_pickup_order", length = 50)
     private String optimalPickupOrder; // "SHOP1_FIRST" | "SHOP2_FIRST"

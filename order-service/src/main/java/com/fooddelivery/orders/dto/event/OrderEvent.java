@@ -36,6 +36,9 @@ public class OrderEvent implements Serializable {
     private String paymentMethod;
     private String orderStatus;
     private String cancelReason;
+    private Boolean shop1Confirmed;
+    private Boolean shop2Confirmed;
+    private Boolean allConfirmed;
     private List<OrderItemSummary> items;
     private Instant timestamp;
 
